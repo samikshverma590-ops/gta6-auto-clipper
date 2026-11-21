@@ -187,59 +187,71 @@ def _score_with_gemini(
         f"Duration: {seg.duration}s\n"
         f"Transcript: {seg.text[:1500]}"
     )
-    url = (
-        f"https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{cfg.gemini_model}:generateContent?key={cfg.gemini_api_key}"
+    models_to_try = list(
+        dict.fromkeys(
+            [
+                cfg.gemini_model,
+                "gemini-3.1-flash-lite",
+                "gemini-3.5-flash-lite",
+                "gemini-3.8-flash",
+            ]
+        )
     )
-    try:
-        resp = httpx.post(
-            url,
-            json={
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"responseMimeType": "application/json"},
-            },
-            timeout=25.0,
+    for model_name in models_to_try:
+        url = (
+            f"https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{model_name}:generateContent?key={cfg.gemini_api_key}"
         )
-        resp.raise_for_status()
-        raw_text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-        data = json.loads(raw_text)
-        hook = max(0, min(35, int(data["hook_impact"])))
-        esc = max(0, min(25, int(data["escalation_arc"])))
-        sens = max(0, min(20, int(data["sensory_spike"])))
-        clar = max(0, min(20, int(data["cold_viewer_clarity"])))
-        total = hook + esc + sens + clar
-        preset_weights = (
-            playbook.get("pacing_and_duration", {}).get("caption_preset_weights", {})
-        )
-        caption_preset = (
-            max(preset_weights.items(), key=lambda kv: kv[1])[0]
-            if preset_weights
-            else "gtaclipper_pill"
-        )
-        banner_words = str(data.get("hook_banner", "WAIT FOR IT")).upper().split()[:3]
-        return ScoredClip(
-            video_id=seg.video_id,
-            video_url=seg.video_url,
-            video_title=seg.video_title,
-            channel=seg.channel,
-            start=seg.start,
-            end=seg.end,
-            duration=seg.duration,
-            text=seg.text,
-            score=total,
-            hook_impact=hook,
-            escalation_arc=esc,
-            sensory_spike=sens,
-            cold_viewer_clarity=clar,
-            hook_archetype=str(data.get("hook_archetype", "npc_ai_shock")),
-            hook_banner=" ".join(banner_words) or "WAIT FOR IT",
-            title_idea=str(data.get("title_idea", seg.video_title))[:90],
-            has_webcam_hint=seg.has_webcam_hint,
-            caption_preset=caption_preset,
-            policy_safe=bool(data.get("policy_safe", True)) and _policy_safe(seg),
-        )
-    except Exception:
-        return None
+        try:
+            resp = httpx.post(
+                url,
+                json={
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {"responseMimeType": "application/json"},
+                },
+                timeout=15.0,
+            )
+            resp.raise_for_status()
+            raw_text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+            data = json.loads(raw_text)
+            hook = max(0, min(35, int(data["hook_impact"])))
+            esc = max(0, min(25, int(data["escalation_arc"])))
+            sens = max(0, min(20, int(data["sensory_spike"])))
+            clar = max(0, min(20, int(data["cold_viewer_clarity"])))
+            total = hook + esc + sens + clar
+            preset_weights = (
+                playbook.get("pacing_and_duration", {}).get("caption_preset_weights", {})
+            )
+            caption_preset = (
+                max(preset_weights.items(), key=lambda kv: kv[1])[0]
+                if preset_weights
+                else "gtaclipper_pill"
+            )
+            banner_words = str(data.get("hook_banner", "WAIT FOR IT")).upper().split()[:3]
+            return ScoredClip(
+                video_id=seg.video_id,
+                video_url=seg.video_url,
+                video_title=seg.video_title,
+                channel=seg.channel,
+                start=seg.start,
+                end=seg.end,
+                duration=seg.duration,
+                text=seg.text,
+                score=total,
+                hook_impact=hook,
+                escalation_arc=esc,
+                sensory_spike=sens,
+                cold_viewer_clarity=clar,
+                hook_archetype=str(data.get("hook_archetype", "npc_ai_shock")),
+                hook_banner=" ".join(banner_words) or "WAIT FOR IT",
+                title_idea=str(data.get("title_idea", seg.video_title))[:90],
+                has_webcam_hint=seg.has_webcam_hint,
+                caption_preset=caption_preset,
+                policy_safe=bool(data.get("policy_safe", True)) and _policy_safe(seg),
+            )
+        except Exception:
+            continue
+    return None
 
 
 def score_and_filter_candidates(
