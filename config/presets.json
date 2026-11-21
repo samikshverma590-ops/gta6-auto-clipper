@@ -8,7 +8,7 @@
   "caption_presets": {
     "gtaclipper_pill": {
       "source": "V413havai/GTAClipper (backend/src/caption_templates.py)",
-      "font_family": "DejaVu Sans",
+      "font_family": "Poppins ExtraBold",
       "preferred_font": "Poppins ExtraBold",
       "font_scale": 0.048,
       "uppercase": true,
@@ -25,7 +25,7 @@
     },
     "cutawan_beast": {
       "source": "JeremySNR/cutawan (src/shared/captionStyles.ts)",
-      "font_family": "DejaVu Sans",
+      "font_family": "Anton",
       "preferred_font": "Anton",
       "font_scale": 0.052,
       "uppercase": true,

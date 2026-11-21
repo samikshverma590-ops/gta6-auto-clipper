@@ -350,3 +350,16 @@ def test_ffmpeg_render_and_quality_gate(tmp_path: Path):
     assert report.passed, report.errors
     assert report.width == 1080
     assert report.height == 1920
+
+    out_action = tmp_path / "synthetic_action.mp4"
+    render_vertical_clip(
+        input_path=src_mp4,
+        output_path=out_action,
+        hook_banner="INSANE DETAIL",
+        transcript_text="Look at this dynamic 1.06x vertical action crop in Vice City!",
+        preset_name="cutawan_beast",
+        split_facecam=False,
+        cfg=cfg,
+    )
+    report2 = validate_clip(out_action)
+    assert report2.passed, report2.errors

@@ -300,7 +300,7 @@ def score_and_filter_candidates(
     cfg: AppConfig,
     threshold: int | None = None,
     max_per_source: int = 3,
-    max_llm_calls: int = 25,
+    max_llm_calls: int = 30,
 ) -> List[ScoredClip]:
     """Pre-rank by heuristic/heatmap/views, round-robin top diverse videos via Gemini, filter < 85."""
     playbook = load_json(cfg.memory_dir / "viral_playbook.json", {})
@@ -311,9 +311,11 @@ def score_and_filter_candidates(
         if not (15.0 <= seg.duration <= 58.0) or not _policy_safe(seg):
             continue
         pre = score_heuristic(seg, playbook)
-        view_bonus = 10 if seg.view_count >= 200_000 else (6 if seg.view_count >= 50_000 else 0)
+        is_twitch = "twitch.tv/" in seg.video_url and "/clip/" in seg.video_url
+        twitch_boost = 14 if is_twitch else 0
+        view_bonus = 10 if seg.view_count >= 200_000 else (6 if seg.view_count >= 30_000 else (3 if seg.view_count >= 10_000 else 0))
         grouped_raw.setdefault(seg.video_id, []).append(
-            (pre.score + int(seg.replay_heat * 10) + view_bonus, seg)
+            (pre.score + int(seg.replay_heat * 10) + view_bonus + twitch_boost, seg)
         )
 
     # Round-robin across videos (1st best window of each video first, then 2nd best)

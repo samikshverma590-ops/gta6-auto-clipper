@@ -14,6 +14,8 @@ REQUIRED_SKILLS = [
     "retention-editor",
     "omni-publisher",
     "self-learning-optimizer",
+    "openshorts",
+    "postiz",
 ]
 
 
@@ -100,8 +102,9 @@ def run_phase0_audit(cfg: AppConfig) -> dict:
 def format_checkpoint_markdown(audit: dict) -> str:
     lines = ["## Phase 0 Audit & Login Checkpoint", ""]
     lines.append("### Skills & Memory")
+    total_skills = len(REQUIRED_SKILLS)
     lines.append(
-        f"- Missing skills: {', '.join(audit['missing_skills']) or 'None (5/5 present)'}"
+        f"- Missing skills: {', '.join(audit['missing_skills']) or f'None ({total_skills}/{total_skills} present)'}"
     )
     for k, ok in audit["memory_files"].items():
         lines.append(f"- `memory/{k}.json`: {'OK' if ok else 'MISSING'}")

@@ -150,21 +150,19 @@ def process_scored_clips(
 
     rendered: List[RenderedClip] = []
     seen_videos: set[str] = set()
-    selected: List[ScoredClip] = []
+    primary: List[ScoredClip] = []
+    backups: List[ScoredClip] = []
     for c in clips:
         if c.video_id not in seen_videos:
-            selected.append(c)
+            primary.append(c)
             seen_videos.add(c.video_id)
-        if len(selected) >= max_clips:
-            break
-    if len(selected) < max_clips:
-        for c in clips:
-            if c not in selected:
-                selected.append(c)
-            if len(selected) >= max_clips:
-                break
+        else:
+            backups.append(c)
+    ordered = primary + backups
 
-    for idx, clip in enumerate(selected, start=1):
+    for idx, clip in enumerate(ordered, start=1):
+        if len(rendered) >= max_clips:
+            break
         clip_id = f"{clip.video_id}_{int(clip.start)}_{int(clip.end)}"
         raw_file = raw_dir / f"slice_{idx:02d}_{clip.video_id}.mp4"
         out_file = out_dir / f"clip_{idx:02d}_{clip.video_id}.mp4"

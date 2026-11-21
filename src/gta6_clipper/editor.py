@@ -1,5 +1,6 @@
-"""Phase 3: Retention editor — Cutawan camera smoothing + word grouping,
-GTAClipper yellow-pill ASS captions, OpenShorts 1.06x punch-in, and 0.30s silence cutting.
+"""Phase 3: Retention editor — OpenCV facecam corner detection, Cutawan camera smoothing
++ word grouping, GTAClipper yellow-pill ASS captions (Poppins ExtraBold),
+OpenShorts 1.06x punch-in, and 0.30s silence jump-cuts.
 """
 
 from __future__ import annotations
@@ -28,6 +29,60 @@ def hex_to_ass_bgr(hex_color: str, alpha: int = 0) -> str:
         return "&H00FFFFFF&"
     r, g, b = clean[0:2], clean[2:4], clean[4:6]
     return f"&H{alpha:02X}{b.upper()}{g.upper()}{r.upper()}&"
+
+
+def detect_facecam_crop(input_path: Path, sample_count: int = 6) -> str | None:
+    """Detect streamer webcam corner via OpenCV Haar cascade across sampled frames.
+
+    Returns an FFmpeg crop expression like 'iw*0.32:ih*0.36:iw*0.68:0' centered on the
+    corner with consistent face detections, or None if no corner facecam is found.
+    """
+    try:
+        import cv2  # type: ignore
+    except Exception:
+        return "iw*0.32:ih*0.36:0:0"
+
+    cascade_path = Path(cv2.data.haarcascades) / "haarcascade_frontalface_default.xml"
+    if not cascade_path.is_file():
+        return "iw*0.32:ih*0.36:0:0"
+    clf = cv2.CascadeClassifier(str(cascade_path))
+
+    cap = cv2.VideoCapture(str(input_path))
+    if not cap.isOpened():
+        return None
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+    if total_frames <= 0:
+        cap.release()
+        return None
+
+    hits: list[tuple[float, float]] = []
+    step = max(1, total_frames // (sample_count + 1))
+    for i in range(1, sample_count + 1):
+        cap.set(cv2.CAP_PROP_POS_FRAMES, min(total_frames - 1, i * step))
+        ok, frame = cap.read()
+        if not ok or frame is None:
+            continue
+        fh, fw = frame.shape[:2]
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        faces = clf.detectMultiScale(gray, scaleFactor=1.15, minNeighbors=5, minSize=(36, 36))
+        for (x, y, w, h) in faces:
+            cx = (x + w / 2.0) / max(1.0, fw)
+            cy = (y + h / 2.0) / max(1.0, fh)
+            # Streamer webcams live near edges/corners (left/right third or top/bottom half)
+            if cx < 0.36 or cx > 0.64:
+                hits.append((cx, cy))
+                break
+    cap.release()
+
+    if len(hits) < 2:
+        return None
+
+    avg_x = sum(p[0] for p in hits) / len(hits)
+    avg_y = sum(p[1] for p in hits) / len(hits)
+    crop_w, crop_h = 0.32, 0.38
+    x0 = max(0.0, min(1.0 - crop_w, avg_x - crop_w / 2.0))
+    y0 = max(0.0, min(1.0 - crop_h, avg_y - crop_h / 2.0))
+    return f"iw*{crop_w:.3f}:ih*{crop_h:.3f}:iw*{x0:.3f}:ih*{y0:.3f}"
 
 
 def plan_camera_pan(
@@ -90,7 +145,7 @@ def group_words_for_captions(
     cur_em = 0.0
     lines_used = 1
 
-    for idx, wt in enumerate(words):
+    for wt in words:
         token = wt.word.strip()
         if not token:
             continue
@@ -152,7 +207,7 @@ def build_ass_subtitles(
     )
     guardrails = presets_cfg.get("caption_layout_guardrails", {})
 
-    font_name = preset.get("font_family", "DejaVu Sans")
+    font_name = preset.get("font_family", "Poppins ExtraBold")
     font_size = max(42, int(round(h * float(preset.get("font_scale", 0.048)))))
     pos_y = int(round(h * float(preset.get("position_y", 0.74))))
     margin_v = max(80, h - pos_y)
@@ -308,7 +363,6 @@ def build_silence_trim_segments(
     for idx, s in enumerate(starts):
         e = ends[idx] if idx < len(ends) else total_duration
         if (e - s) >= min_silence_sec:
-            # Leave 0.08s breathing cushion so cuts feel snappy, not clipped
             silences.append((s + 0.04, max(s + 0.04, e - 0.04)))
 
     if not silences:
@@ -325,6 +379,72 @@ def build_silence_trim_segments(
     return kept or [(0.0, total_duration)]
 
 
+def _maybe_trim_silences(input_path: Path, total_duration: float, tmp_dir: Path) -> Path:
+    """Trim >0.35s dead air segments when remaining duration stays >= 15.0s."""
+    if total_duration < 17.5:
+        return input_path
+    det = subprocess.run(
+        [
+            "ffmpeg",
+            "-i",
+            str(input_path),
+            "-af",
+            "silencedetect=noise=-34dB:d=0.35",
+            "-f",
+            "null",
+            "-",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    kept = build_silence_trim_segments(det.stderr, total_duration, min_silence_sec=0.35)
+    kept_dur = sum(e - s for s, e in kept)
+    if len(kept) <= 1 or kept_dur < 15.0 or (total_duration - kept_dur) < 0.5:
+        return input_path
+
+    # Build trim+concat filtergraph in one fast pass
+    v_parts = []
+    a_parts = []
+    concat_inputs = []
+    for idx, (s, e) in enumerate(kept[:12]):
+        v_parts.append(f"[0:v]trim=start={s:.3f}:end={e:.3f},setpts=PTS-STARTPTS[v{idx}];")
+        a_parts.append(f"[0:a]atrim=start={s:.3f}:end={e:.3f},asetpts=PTS-STARTPTS[a{idx}];")
+        concat_inputs.append(f"[v{idx}][a{idx}]")
+
+    trimmed_path = tmp_dir / f"trimmed_{input_path.name}"
+    fc = "".join(v_parts + a_parts) + "".join(concat_inputs) + f"concat=n={len(concat_inputs)}:v=1:a=1[vo][ao]"
+    res = subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(input_path),
+            "-filter_complex",
+            fc,
+            "-map",
+            "[vo]",
+            "-map",
+            "[ao]",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "ultrafast",
+            "-crf",
+            "18",
+            "-c:a",
+            "aac",
+            str(trimmed_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if res.returncode == 0 and trimmed_path.is_file():
+        return trimmed_path
+    return input_path
+
+
 def _escape_ffmpeg_path(path: Path) -> str:
     return str(path).replace("\\", "/").replace(":", "\\:")
 
@@ -338,7 +458,9 @@ def render_vertical_clip(
     split_facecam: bool,
     cfg: AppConfig,
 ) -> Path:
-    """Render 1080x1920 vertical clip with optional split facecam, punch-in & ASS captions."""
+    """Render 1080x1920 vertical clip with OpenCV facecam detection, silence jump-cuts,
+    subtle 1.06x punch-in, and Poppins ExtraBold ASS captions.
+    """
     presets_cfg = load_json(cfg.config_dir / "presets.json", {})
     ass_path = output_path.with_suffix(".ass")
 
@@ -357,31 +479,64 @@ def render_vertical_clip(
         text=True,
         check=True,
     )
-    duration = max(1.0, float(probe.stdout.strip() or "20.0"))
-    words = extract_word_timings(input_path, transcript_text, duration)
+    raw_duration = max(1.0, float(probe.stdout.strip() or "20.0"))
+    working_input = _maybe_trim_silences(input_path, raw_duration, output_path.parent)
+
+    if working_input != input_path:
+        probe2 = subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                str(working_input),
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        duration = max(1.0, float(probe2.stdout.strip() or str(raw_duration)))
+    else:
+        duration = raw_duration
+
+    words = extract_word_timings(working_input, transcript_text, duration)
     safe_ass = build_ass_subtitles(words, hook_banner, preset_name, presets_cfg, ass_path)
     ass_escaped = _escape_ffmpeg_path(safe_ass)
 
-    if split_facecam:
-        # Stack top 30% (1080x576) facecam crop (top-left/right region) over bottom 70% (1080x1344) gameplay
+    fonts_dir = cfg.repo_root / "assets" / "fonts"
+    fonts_arg = (
+        f":fontsdir='{_escape_ffmpeg_path(fonts_dir)}'"
+        if fonts_dir.is_dir()
+        else ""
+    )
+
+    facecam_crop = detect_facecam_crop(working_input) if split_facecam else None
+    # Subtle 1.06x punch-in breath every ~18s (OpenShorts punch_in.py envelope)
+    scale_zoom_w = "trunc(1080*(1+0.06*max(0,sin(PI*t/18))*gt(sin(PI*t/18),0.85))/2)*2"
+
+    if facecam_crop:
         filter_complex = (
             "[0:v]split=2[cam][game];"
-            "[cam]crop=iw*0.32:ih*0.36:0:0,scale=1080:576:force_original_aspect_ratio=increase,crop=1080:576[top];"
-            "[game]scale=1080:1344:force_original_aspect_ratio=increase,crop=1080:1344[bot];"
-            f"[top][bot]vstack=inputs=2,ass='{ass_escaped}'[v]"
+            f"[cam]crop={facecam_crop},scale=1080:576:force_original_aspect_ratio=increase,crop=1080:576,setsar=1[top];"
+            "[game]scale=1080:1344:force_original_aspect_ratio=increase,crop=1080:1344,setsar=1[bot];"
+            f"[top][bot]vstack=inputs=2,ass='{ass_escaped}'{fonts_arg}[v]"
         )
     else:
-        # Stabilized 9:16 center action crop + subtle 1.04-1.06x punch-in breath
+        # Pure gameplay / full-frame action crop with subtle 1.06x dynamic zoom
         filter_complex = (
-            "[0:v]scale=1080:1920:force_original_aspect_ratio=increase,"
-            f"crop=1080:1920,ass='{ass_escaped}'[v]"
+            "[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,"
+            f"scale=w='{scale_zoom_w}':h=-2:eval=frame,crop=1080:1920,setsar=1,"
+            f"ass='{ass_escaped}'{fonts_arg}[v]"
         )
 
     cmd = [
         "ffmpeg",
         "-y",
         "-i",
-        str(input_path),
+        str(working_input),
         "-filter_complex",
         filter_complex,
         "-map",

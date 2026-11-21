@@ -88,6 +88,12 @@
       "failed_engine": "yt-dlp-slice",
       "error": "ZIpQFWi4-p06tqnNc8kcCIEbjSHTR4_TmtiCXrqvNNLweNqIC1OW2H_thhEGBmogZ&lsparams=cps%2Cmet%2Cmh%2Cmm%2Cmn%2Cms%2Cmv%2Cmvi%2Cpl%2Crms&lsig=APaTxxMwRQIhAOmOR9cUtyaKw62TSMM0IZqO8VFY8JNGO30kcUop_7txAiAWqOTtqnsA0kNFLS7L4TbtVgULFUI7CFVXyRLhIbbTPg%3D%3D.\nError opening input files: Server returned 403 Forbidden (access denied)\n\n\nERROR: ffmpeg exited with code 8\n",
       "fallback_applied": "skip_clip"
+    },
+    {
+      "timestamp": "2026-11-21T19:09:57.460348+00:00",
+      "failed_engine": "yt-dlp-slice",
+      "error": "fiuKylDNLrv0RigCGROPNLu1UddW5by_L-krLbAiEAztnMbxFloT67F-jHoizHem975NXnHgvHpqkO0bN8xTw%3D&lsparams=cps%2Cmet%2Cmh%2Cmm%2Cmn%2Cms%2Cmv%2Cmvi%2Cpl%2Crms&lsig=APaTxxMwRQIhAPcKd4kiZkNpfZd7WmR88ldxcyWpflOOmv5vXomS8EbKAiBGR9KCsCEujCTeY3gfLzFaiXLVdxFWdc06r0s_JizGEw%3D%3D.\nError opening input files: Connection timed out\n\n\nERROR: ffmpeg exited with code 146\n",
+      "fallback_applied": "skip_clip"
     }
   ]
 }
