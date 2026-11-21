@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import shutil
 import subprocess
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
@@ -30,6 +31,12 @@ class RenderedClip:
     caption_preset: str
     duration: float
     quality_passed: bool
+    channel: str = ""
+    youtube_title: str = ""
+    tiktok_caption: str = ""
+    instagram_caption: str = ""
+    hashtags: List[str] = field(default_factory=list)
+    pinned_question: str = ""
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -48,8 +55,10 @@ def download_slice(clip: ScoredClip, out_path: Path) -> Path:
     """Download ONLY the winning timestamp slice using yt-dlp --download-sections."""
     out_path.parent.mkdir(parents=True, exist_ok=True)
     section = f"*{clip.start:.2f}-{clip.end:.2f}"
+    js_flags = ["--js-runtimes", "node"] if shutil.which("node") else []
     cmd = [
         "yt-dlp",
+        *js_flags,
         "--download-sections",
         section,
         "--force-keyframes-at-cuts",
@@ -68,7 +77,15 @@ def download_slice(clip: ScoredClip, out_path: Path) -> Path:
 
 def _log_recovery(cfg: AppConfig, engine: str, error_msg: str, fallback: str) -> None:
     lessons_path = cfg.memory_dir / "mistakes_and_lessons.json"
-    data = load_json(lessons_path, {"schema_version": "1.0.0", "lessons": [], "flop_postmortems": [], "tool_recoveries": []})
+    data = load_json(
+        lessons_path,
+        {
+            "schema_version": "1.0.0",
+            "lessons": [],
+            "flop_postmortems": [],
+            "tool_recoveries": [],
+        },
+    )
     data.setdefault("tool_recoveries", []).append(
         {
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -97,7 +114,7 @@ def _try_openshorts_mcp(clip: ScoredClip, cfg: AppConfig) -> bool:
 
 
 def process_scored_clips(
-    clips: List[ScoredClip], cfg: AppConfig
+    clips: List[ScoredClip], cfg: AppConfig, max_clips: int = 3
 ) -> List[RenderedClip]:
     """Download slice-only media into /tmp/clip_work/, render 9:16, and pass quality gate."""
     raw_dir = cfg.work_dir / "raw"
@@ -106,7 +123,23 @@ def process_scored_clips(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     rendered: List[RenderedClip] = []
-    for idx, clip in enumerate(clips, start=1):
+    # Deduplicate by video_id first so top clips span multiple viral creators
+    seen_videos: set[str] = set()
+    selected: List[ScoredClip] = []
+    for c in clips:
+        if c.video_id not in seen_videos:
+            selected.append(c)
+            seen_videos.add(c.video_id)
+        if len(selected) >= max_clips:
+            break
+    if len(selected) < max_clips:
+        for c in clips:
+            if c not in selected:
+                selected.append(c)
+            if len(selected) >= max_clips:
+                break
+
+    for idx, clip in enumerate(selected, start=1):
         clip_id = f"{clip.video_id}_{int(clip.start)}_{int(clip.end)}"
         raw_file = raw_dir / f"slice_{idx:02d}_{clip.video_id}.mp4"
         out_file = out_dir / f"clip_{idx:02d}_{clip.video_id}.mp4"
@@ -120,7 +153,12 @@ def process_scored_clips(
 
         split_cam = engine == "gtaclipper_split"
         if engine == "openshorts_mcp" and not _try_openshorts_mcp(clip, cfg):
-            _log_recovery(cfg, "openshorts_mcp", "MCP unreachable or unauthenticated", "ffmpeg_hybrid")
+            _log_recovery(
+                cfg,
+                "openshorts_mcp",
+                "MCP unreachable or unauthenticated",
+                "ffmpeg_hybrid",
+            )
             engine = "ffmpeg_hybrid"
 
         try:
@@ -169,6 +207,12 @@ def process_scored_clips(
                     caption_preset=clip.caption_preset,
                     duration=report.duration,
                     quality_passed=report.passed,
+                    channel=clip.channel,
+                    youtube_title=clip.youtube_title,
+                    tiktok_caption=clip.tiktok_caption,
+                    instagram_caption=clip.instagram_caption,
+                    hashtags=clip.hashtags,
+                    pinned_question=clip.pinned_question,
                 )
             )
         except Exception as exc:

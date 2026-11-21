@@ -12,7 +12,7 @@ on:
       playlist_items:
         description: "Max recent items per source"
         required: false
-        default: "3"
+        default: "2"
 
 permissions:
   contents: write
@@ -23,7 +23,7 @@ jobs:
     timeout-minutes: 45
     env:
       CLIP_WORK_DIR: /tmp/clip_work
-      DRY_RUN: ${{ github.event.inputs.dry_run || 'true' }}
+      DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
@@ -60,7 +60,7 @@ jobs:
       - name: Execute Phases 0-5 Autonomous Pipeline
         run: |
           gta6-clipper audit
-          gta6-clipper run-all --playlist-items "${{ github.event.inputs.playlist_items || '3' }}"
+          gta6-clipper run-all --playlist-items "${{ github.event.inputs.playlist_items || '2' }}" --max-clips 3
 
       - name: Verify Zero-Storage Cleanup
         if: always()

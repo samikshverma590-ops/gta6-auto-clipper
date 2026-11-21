@@ -34,21 +34,25 @@ def build_platform_payload(
     tt_tpl = templates.get("tiktok", {})
     ig_tpl = templates.get("instagram", {})
 
-    question = (
+    question = clip.pinned_question or (
         yt_tpl.get("pinned_question_templates") or ["Rate this GTA 6 clip 1-10!"]
     )[0]
-    yt_tags = " ".join(yt_tpl.get("hashtags", ["#Shorts", "#GTA6", "#GTAVI"]))
-    tt_tags = " ".join(tt_tpl.get("hashtags", ["#gta6", "#gtavi", "#vicecity"]))
-    ig_tags = " ".join(ig_tpl.get("hashtags", ["#gta6", "#gtavi", "#gamingreels"]))
+    custom_tags = [t for t in clip.hashtags if str(t).startswith("#")]
+    yt_tags = " ".join(custom_tags or yt_tpl.get("hashtags", ["#Shorts", "#GTA6", "#GTAVI"]))
+    tt_tags = " ".join(custom_tags or tt_tpl.get("hashtags", ["#gta6", "#gtavi", "#vicecity"]))
+    ig_tags = " ".join(custom_tags or ig_tpl.get("hashtags", ["#gta6", "#gtavi", "#gamingreels"]))
 
-    yt_title = truncate_youtube_title(
-        f"{clip.title_idea} {yt_tpl.get('title_suffix', '#Shorts')}"
-    )
-    yt_desc = f"{clip.hook_banner} — {clip.title_idea}\n\n{question}\n\n{yt_tags}"
-    tt_caption = f"{clip.hook_banner}: {clip.title_idea} {question} {tt_tags}"[:300]
-    ig_caption = f"{clip.hook_banner} 🔥\n{clip.title_idea}\n\n{question}\n\n{ig_tags}"[
-        :2200
-    ]
+    raw_yt_title = clip.youtube_title or f"{clip.title_idea} {yt_tpl.get('title_suffix', '#Shorts')}"
+    if "#shorts" not in raw_yt_title.lower():
+        raw_yt_title = f"{raw_yt_title} #Shorts"
+    yt_title = truncate_youtube_title(raw_yt_title)
+
+    credit = f"Credit: {clip.channel}\n\n" if clip.channel else ""
+    yt_desc = f"{clip.hook_banner} — {clip.title_idea}\n{credit}{question}\n\n{yt_tags}"
+    tt_base = clip.tiktok_caption or f"{clip.hook_banner}: {clip.title_idea}"
+    tt_caption = f"{tt_base} {question} {tt_tags}"[:300]
+    ig_base = clip.instagram_caption or f"{clip.hook_banner} 🔥\n{clip.title_idea}"
+    ig_caption = f"{ig_base}\n{credit}{question}\n\n{ig_tags}"[:2200]
 
     return {
         "youtube": {

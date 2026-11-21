@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
 from dataclasses import dataclass, asdict
-from pathlib import Path
 from typing import Iterable, List
 
 from .config import AppConfig, load_json, load_sources
@@ -29,6 +29,8 @@ class CandidateSegment:
     end: float
     text: str
     has_webcam_hint: bool = False
+    replay_heat: float = 0.0
+    view_count: int = 0
 
     @property
     def duration(self) -> float:
@@ -72,12 +74,25 @@ def parse_vtt_or_srt(content: str) -> List[TranscriptCue]:
             i += 1
         text = " ".join(text_parts).strip()
         if text and end > start:
-            # Deduplicate rolling auto-caption lines
             if cues and cues[-1].text == text:
                 cues[-1].end = max(cues[-1].end, end)
             else:
                 cues.append(TranscriptCue(start=start, end=end, text=text))
     return cues
+
+
+def _window_heatmap_score(
+    start: float, end: float, heatmap: list[dict] | None
+) -> float:
+    if not heatmap:
+        return 0.0
+    peak = 0.0
+    for entry in heatmap:
+        s = float(entry.get("start_time", 0.0))
+        e = float(entry.get("end_time", 0.0))
+        if e >= start and s <= end:
+            peak = max(peak, float(entry.get("value", 0.0)))
+    return round(peak, 3)
 
 
 def build_candidate_windows(
@@ -90,6 +105,8 @@ def build_candidate_windows(
     max_sec: float = 52.0,
     stride_sec: float = 20.0,
     has_webcam_hint: bool = False,
+    heatmap: list[dict] | None = None,
+    view_count: int = 0,
 ) -> List[CandidateSegment]:
     """Group transcript cues into overlapping 15-58s candidate windows."""
     cue_list = list(cues)
@@ -109,6 +126,7 @@ def build_candidate_windows(
         win_end = cue_list[max(idx, j - 1)].end
         dur = win_end - win_start
         if dur >= min_sec:
+            end_clamped = round(min(win_end, win_start + 58.0), 2)
             windows.append(
                 CandidateSegment(
                     video_id=video_id,
@@ -116,12 +134,13 @@ def build_candidate_windows(
                     video_title=video_title,
                     channel=channel,
                     start=round(win_start, 2),
-                    end=round(min(win_end, win_start + 58.0), 2),
+                    end=end_clamped,
                     text=" ".join(texts),
                     has_webcam_hint=has_webcam_hint,
+                    replay_heat=_window_heatmap_score(win_start, end_clamped, heatmap),
+                    view_count=view_count,
                 )
             )
-        # Advance by stride_sec
         next_target = win_start + stride_sec
         while idx < n and cue_list[idx].start < next_target:
             idx += 1
@@ -142,7 +161,7 @@ def _processed_video_ids(cfg: AppConfig) -> set[str]:
 def fetch_subtitles_only(
     cfg: AppConfig,
     sources: list[str] | None = None,
-    playlist_items: int = 5,
+    playlist_items: int = 2,
 ) -> List[CandidateSegment]:
     """Fetch metadata + auto-captions via yt-dlp WITHOUT downloading any video."""
     subs_dir = cfg.work_dir / "subs"
@@ -150,19 +169,23 @@ def fetch_subtitles_only(
     target_sources = sources if sources is not None else load_sources(cfg)
     seen_ids = _processed_video_ids(cfg)
     candidates: List[CandidateSegment] = []
+    js_flags = ["--js-runtimes", "node"] if shutil.which("node") else []
 
     for source in target_sources:
         cmd = [
             "yt-dlp",
+            *js_flags,
             "--skip-download",
             "--write-auto-sub",
             "--write-sub",
             "--sub-langs",
-            "en.*,en",
+            "en",
             "--sub-format",
             "vtt/srt",
             "--playlist-end",
             str(playlist_items),
+            "--match-filter",
+            "!is_live & duration >= 45 & duration <= 28800",
             "--ignore-errors",
             "--no-warnings",
             "--write-info-json",
@@ -171,7 +194,7 @@ def fetch_subtitles_only(
             source,
         ]
         try:
-            subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=120)
+            subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=90)
         except (OSError, subprocess.TimeoutExpired):
             continue
 
@@ -180,19 +203,20 @@ def fetch_subtitles_only(
             meta = json.loads(info_path.read_text(encoding="utf-8"))
         except Exception:
             continue
+        if meta.get("_type") == "playlist":
+            continue
         vid = meta.get("id")
         if not vid or vid in seen_ids:
             continue
         seen_ids.add(vid)
         title = meta.get("title", "")
-        if "gta" not in title.lower() and "grand theft auto" not in title.lower():
-            # Keep GTA 6 focused unless channel is explicitly GTA
-            desc = (meta.get("description") or "").lower()
-            if "gta" not in desc and "leonida" not in desc:
-                continue
+        desc = (meta.get("description") or "").lower()
+        combined = f"{title} {desc}".lower()
+        if not any(kw in combined for kw in ("gta", "grand theft auto", "leonida", "vice city")):
+            continue
 
         sub_file = None
-        for ext in ("en.vtt", "en-US.vtt", "en.srt", "vtt", "srt"):
+        for ext in ("en.vtt", "en-orig.vtt", "en-US.vtt", "en.srt", "vtt", "srt"):
             p = subs_dir / f"{vid}.{ext}"
             if p.exists():
                 sub_file = p
@@ -211,7 +235,7 @@ def fetch_subtitles_only(
         webpage_url = meta.get("webpage_url") or f"https://www.youtube.com/watch?v={vid}"
         webcam_hint = any(
             kw in title.lower()
-            for kw in ("react", "reaction", "stream", "vod", "live", "playthrough")
+            for kw in ("react", "reaction", "stream", "vod", "live", "playthrough", "ishowspeed", "kai cenat", "xqc", "caseoh")
         )
         candidates.extend(
             build_candidate_windows(
@@ -221,6 +245,8 @@ def fetch_subtitles_only(
                 channel=channel,
                 cues=cues,
                 has_webcam_hint=webcam_hint,
+                heatmap=meta.get("heatmap"),
+                view_count=int(meta.get("view_count") or 0),
             )
         )
     return candidates

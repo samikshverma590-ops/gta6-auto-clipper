@@ -24,7 +24,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("audit", help="Run Phase 0 skills, binary & secret checkpoint")
     sub.add_parser("learn", help="Run Phase 5 self-learning weight optimization")
     run_all = sub.add_parser("run-all", help="Execute full Phases 0-5 cloud pipeline")
-    run_all.add_argument("--playlist-items", type=int, default=3)
+    run_all.add_argument("--playlist-items", type=int, default=2)
+    run_all.add_argument("--max-clips", type=int, default=3)
 
     args = parser.parse_args(argv)
     cfg = load_config()
@@ -44,7 +45,11 @@ def main(argv: list[str] | None = None) -> int:
         learn_summary = run_learning_cycle(cfg)
         candidates = fetch_subtitles_only(cfg, playlist_items=args.playlist_items)
         winners = score_and_filter_candidates(candidates, cfg)
-        rendered = process_scored_clips(winners, cfg) if winners else []
+        rendered = (
+            process_scored_clips(winners, cfg, max_clips=args.max_clips)
+            if winners
+            else []
+        )
         pub_summary = publish_and_cleanup(rendered, cfg)
         wipe_work_dir(cfg.work_dir)
         dashboard = {

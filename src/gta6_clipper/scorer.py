@@ -1,10 +1,10 @@
-"""Phase 2: 100-point viral moment scoring against memory/viral_playbook.json."""
+"""Phase 2: 100-point viral moment scoring & metadata optimization."""
 
 from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from typing import List
 
 import httpx
@@ -34,6 +34,11 @@ class ScoredClip:
     has_webcam_hint: bool
     caption_preset: str
     policy_safe: bool
+    youtube_title: str = ""
+    tiktok_caption: str = ""
+    instagram_caption: str = ""
+    hashtags: List[str] = field(default_factory=list)
+    pinned_question: str = ""
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -96,7 +101,7 @@ def _pick_hook_archetype(text_lower: str, playbook: dict) -> tuple[str, str, flo
 
 
 def score_heuristic(seg: CandidateSegment, playbook: dict) -> ScoredClip:
-    """Deterministic playbook-weighted 0-100 viral scorer."""
+    """Deterministic playbook-weighted 0-100 viral scorer with YouTube heatmap boost."""
     text_lower = f"{seg.video_title} {seg.text}".lower()
     words = re.findall(r"[a-zA-Z0-9']+", seg.text)
     first_10 = " ".join(words[:10]).lower()
@@ -123,9 +128,10 @@ def score_heuristic(seg: CandidateSegment, playbook: dict) -> ScoredClip:
         escalation += 5
     escalation = max(0, min(25, escalation))
 
-    # 3. Sensory / Emotional Spike (0..20)
+    # 3. Sensory / Emotional Spike (0..20) boosted by YouTube Most-Replayed heatmap
     keyword_hits = sum(1 for kw in _HIGH_INTENSITY_WORDS if kw in text_lower)
-    sensory = min(20, 8 + keyword_hits * 3)
+    heat_bonus = int(round(seg.replay_heat * 6))
+    sensory = min(20, 8 + keyword_hits * 3 + heat_bonus)
 
     # 4. Cold-Viewer Clarity (0..20)
     clarity = 14
@@ -135,7 +141,6 @@ def score_heuristic(seg: CandidateSegment, playbook: dict) -> ScoredClip:
 
     total = max(0, min(100, hook + escalation + sensory + clarity))
 
-    # Select highest-weighted caption preset from playbook
     preset_weights = (
         playbook.get("pacing_and_duration", {}).get("caption_preset_weights", {})
     )
@@ -146,6 +151,11 @@ def score_heuristic(seg: CandidateSegment, playbook: dict) -> ScoredClip:
     )
 
     clean_title = re.sub(r"\s+", " ", seg.video_title).strip()[:65]
+    creator_tag = "#" + re.sub(r"[^a-zA-Z0-9]", "", seg.channel)
+    tags = ["#Shorts", "#GTA6", "#GTAVI", "#ViceCity", "#Leonida", "#RockstarGames"]
+    if len(creator_tag) > 2:
+        tags.append(creator_tag)
+
     return ScoredClip(
         video_id=seg.video_id,
         video_url=seg.video_url,
@@ -166,6 +176,9 @@ def score_heuristic(seg: CandidateSegment, playbook: dict) -> ScoredClip:
         has_webcam_hint=seg.has_webcam_hint,
         caption_preset=caption_preset,
         policy_safe=_policy_safe(seg),
+        youtube_title=f"{banner.title()} in GTA 6! ({seg.channel}) #Shorts"[:100],
+        hashtags=tags[:7],
+        pinned_question="Did you catch this in Vice City yet? Rate 1-10 👇",
     )
 
 
@@ -175,16 +188,21 @@ def _score_with_gemini(
     if not cfg.gemini_api_key:
         return None
     prompt = (
-        "Score this GTA 6 15-58s video transcript segment from 0 to 100 using this rubric:\n"
+        "You are a viral GTA 6 Shorts director. Score this 15-58s clip transcript 0-100 and generate peak-CTR social metadata:\n"
         "- hook_impact (0-35): immediate action or curiosity hook in first 3s; penalize slow intros.\n"
         "- escalation_arc (0-25): rising tension, comedy, or pacing.\n"
         "- sensory_spike (0-20): shock, laughter, rare GTA 6 detail/Easter egg, or chaos.\n"
         "- cold_viewer_clarity (0-20): understandable with zero prior context.\n"
-        "Return strict JSON with keys: hook_impact, escalation_arc, sensory_spike, "
-        "cold_viewer_clarity, hook_archetype, hook_banner (3 uppercase words max), title_idea (<=80 chars), policy_safe (bool).\n"
+        "Return STRICT JSON with keys:\n"
+        "  hook_impact, escalation_arc, sensory_spike, cold_viewer_clarity, hook_archetype, "
+        "hook_banner (3 uppercase words max), title_idea (<=80 chars), youtube_title (<=95 chars ending with #Shorts), "
+        "tiktok_caption (<=150 chars punchy hook), instagram_caption (<=220 chars), "
+        "hashtags (array of 6 high-reach tags starting with #), pinned_question (1 short comment-bait question), "
+        "policy_safe (bool).\n"
         f"Playbook archetypes: {[a['id'] for a in playbook.get('hook_archetypes', [])]}\n"
+        f"Creator/Channel: {seg.channel}\n"
         f"Video title: {seg.video_title}\n"
-        f"Duration: {seg.duration}s\n"
+        f"Duration: {seg.duration}s | YouTube Most-Replayed Heat: {seg.replay_heat}\n"
         f"Transcript: {seg.text[:1500]}"
     )
     models_to_try = list(
@@ -228,6 +246,8 @@ def _score_with_gemini(
                 else "gtaclipper_pill"
             )
             banner_words = str(data.get("hook_banner", "WAIT FOR IT")).upper().split()[:3]
+            raw_tags = data.get("hashtags") or ["#Shorts", "#GTA6", "#GTAVI", "#ViceCity", "#Leonida"]
+            clean_tags = [t if str(t).startswith("#") else f"#{t}" for t in raw_tags][:7]
             return ScoredClip(
                 video_id=seg.video_id,
                 video_url=seg.video_url,
@@ -248,6 +268,11 @@ def _score_with_gemini(
                 has_webcam_hint=seg.has_webcam_hint,
                 caption_preset=caption_preset,
                 policy_safe=bool(data.get("policy_safe", True)) and _policy_safe(seg),
+                youtube_title=str(data.get("youtube_title", ""))[:100],
+                tiktok_caption=str(data.get("tiktok_caption", ""))[:220],
+                instagram_caption=str(data.get("instagram_caption", ""))[:400],
+                hashtags=clean_tags,
+                pinned_question=str(data.get("pinned_question", ""))[:160],
             )
         except Exception:
             continue
@@ -260,28 +285,35 @@ def score_and_filter_candidates(
     threshold: int | None = None,
     max_per_source: int = 3,
 ) -> List[ScoredClip]:
-    """Score all candidate windows, filter < threshold (85) and keep top 3 per source."""
+    """Pre-rank by heuristic/heatmap, score top windows via Gemini, filter < 85, keep top 3/source."""
     playbook = load_json(cfg.memory_dir / "viral_playbook.json", {})
     min_score = cfg.min_viral_score if threshold is None else threshold
-    by_video: dict[str, List[ScoredClip]] = {}
 
+    grouped_raw: dict[str, List[tuple[int, CandidateSegment]]] = {}
     for seg in candidates:
-        if not (15.0 <= seg.duration <= 58.0):
+        if not (15.0 <= seg.duration <= 58.0) or not _policy_safe(seg):
             continue
-        scored = _score_with_gemini(seg, playbook, cfg) or score_heuristic(seg, playbook)
-        if not scored.policy_safe or scored.score < min_score:
-            continue
-        by_video.setdefault(scored.video_id, []).append(scored)
+        pre = score_heuristic(seg, playbook)
+        grouped_raw.setdefault(seg.video_id, []).append((pre.score + int(seg.replay_heat * 10), seg))
 
     winners: List[ScoredClip] = []
-    for vid, items in by_video.items():
-        items.sort(key=lambda c: c.score, reverse=True)
-        # De-overlap selected timestamps within the same video
-        picked: List[ScoredClip] = []
-        for item in items:
-            if any(not (item.end <= p.start or item.start >= p.end) for p in picked):
+    for vid, scored_pairs in grouped_raw.items():
+        scored_pairs.sort(key=lambda pair: pair[0], reverse=True)
+        # Send top 6 non-overlapping candidates per VOD to Gemini to respect free-tier RPM
+        shortlist: List[CandidateSegment] = []
+        for _, seg in scored_pairs:
+            if any(not (seg.end <= s.start or seg.start >= s.end) for s in shortlist):
                 continue
-            picked.append(item)
+            shortlist.append(seg)
+            if len(shortlist) >= 6:
+                break
+
+        picked: List[ScoredClip] = []
+        for seg in shortlist:
+            scored = _score_with_gemini(seg, playbook, cfg) or score_heuristic(seg, playbook)
+            if not scored.policy_safe or scored.score < min_score:
+                continue
+            picked.append(scored)
             if len(picked) >= max_per_source:
                 break
         winners.extend(picked)
