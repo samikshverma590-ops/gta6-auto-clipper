@@ -49,6 +49,9 @@ _SPOILER_OR_POLICY_FLAGS = (
     "final mission ending",
     "full cutscene no commentary",
     "leaked dev build",
+    "sad ending",
+    "ending explained",
+    "final mission",
 )
 
 _HIGH_INTENSITY_WORDS = {
@@ -120,18 +123,20 @@ def score_heuristic(seg: CandidateSegment, playbook: dict) -> ScoredClip:
 
     # 2. Escalation & Pacing Arc (0..25)
     dur = seg.duration
+    is_twitch_clip = "twitch.tv/" in seg.video_url and "/clip/" in seg.video_url
     word_rate = len(words) / max(1.0, dur)
     escalation = 14
     if 18.0 <= dur <= 48.0:
         escalation += 6
-    if 2.0 <= word_rate <= 4.2:
+    if 2.0 <= word_rate <= 4.2 or (is_twitch_clip and seg.view_count >= 15_000):
         escalation += 5
     escalation = max(0, min(25, escalation))
 
-    # 3. Sensory / Emotional Spike (0..20) boosted by YouTube Most-Replayed heatmap
+    # 3. Sensory / Emotional Spike (0..20) boosted by YouTube Most-Replayed heatmap or Twitch clip views
     keyword_hits = sum(1 for kw in _HIGH_INTENSITY_WORDS if kw in text_lower)
     heat_bonus = int(round(seg.replay_heat * 6))
-    sensory = min(20, 8 + keyword_hits * 3 + heat_bonus)
+    twitch_bonus = 6 if (is_twitch_clip and seg.view_count >= 25_000) else (4 if is_twitch_clip and seg.view_count >= 10_000 else 0)
+    sensory = min(20, 8 + keyword_hits * 3 + heat_bonus + twitch_bonus)
 
     # 4. Cold-Viewer Clarity (0..20)
     clarity = 14
@@ -187,10 +192,22 @@ def _score_with_gemini(
 ) -> ScoredClip | None:
     if not cfg.gemini_api_key:
         return None
+    is_twitch_clip = "twitch.tv/" in seg.video_url and "/clip/" in seg.video_url
+    source_note = (
+        "This is a human-curated top 7-day Twitch viral highlight (full audio will be word-by-word captioned with faster-whisper)."
+        if is_twitch_clip
+        else "Remember: auto-captions omit facial expressions, screaming volume, and insane Vice City visuals — infer energy and curiosity from the words + view count."
+    )
     prompt = (
-        "You are a viral GTA 6 Shorts director. Score this 15-58s clip transcript 0-100 and generate peak-CTR social metadata:\n"
-        "- hook_impact (0-35): immediate action or curiosity hook in first 3s; penalize slow intros.\n"
-        "- escalation_arc (0-25): rising tension, comedy, or pacing.\n"
+        "You are a viral GTA 6 Shorts director evaluating a candidate clip from a live gaming/reaction stream.\n"
+        f"{source_note}\n"
+        "Score 0-100 using these calibrated anchors:\n"
+        "  - 85-95: Strong standalone chaos, hilarious streamer reaction, shocking GTA 6 secret/NPC detail, or immediate curiosity hook (high-view Twitch GTA 6 highlights with strong titles belong here).\n"
+        "  - 65-84: Good moment but slow build-up, generic title, or needs prior context.\n"
+        "  - <65: Boring filler, menu/loading talk, or slow intro ('hey guys subscribe').\n"
+        "Sub-scores:\n"
+        "- hook_impact (0-35): immediate action, shock, or bold claim in first 3s.\n"
+        "- escalation_arc (0-25): rising tension, comedy, or payoff.\n"
         "- sensory_spike (0-20): shock, laughter, rare GTA 6 detail/Easter egg, or chaos.\n"
         "- cold_viewer_clarity (0-20): understandable with zero prior context.\n"
         "Return STRICT JSON with keys:\n"
@@ -198,12 +215,12 @@ def _score_with_gemini(
         "hook_banner (3 uppercase words max), title_idea (<=80 chars), youtube_title (<=95 chars ending with #Shorts), "
         "tiktok_caption (<=150 chars punchy hook), instagram_caption (<=220 chars), "
         "hashtags (array of 6 high-reach tags starting with #), pinned_question (1 short comment-bait question), "
-        "policy_safe (bool).\n"
+        "policy_safe (bool; false ONLY if it is an unedited full cutscene or ending spoiler).\n"
         f"Playbook archetypes: {[a['id'] for a in playbook.get('hook_archetypes', [])]}\n"
-        f"Creator/Channel: {seg.channel}\n"
+        f"Creator/Channel: {seg.channel} | Clip Views: {seg.view_count:,}\n"
         f"Video title: {seg.video_title}\n"
         f"Duration: {seg.duration}s | YouTube Most-Replayed Heat: {seg.replay_heat}\n"
-        f"Transcript: {seg.text[:1500]}"
+        f"Transcript/Context: {seg.text[:1500]}"
     )
     models_to_try = list(
         dict.fromkeys(
@@ -211,7 +228,6 @@ def _score_with_gemini(
                 cfg.gemini_model,
                 "gemini-3.1-flash-lite",
                 "gemini-3.5-flash-lite",
-                "gemini-3.8-flash",
             ]
         )
     )
@@ -227,7 +243,7 @@ def _score_with_gemini(
                     "contents": [{"parts": [{"text": prompt}]}],
                     "generationConfig": {"responseMimeType": "application/json"},
                 },
-                timeout=15.0,
+                timeout=6.0,
             )
             resp.raise_for_status()
             raw_text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
@@ -284,8 +300,9 @@ def score_and_filter_candidates(
     cfg: AppConfig,
     threshold: int | None = None,
     max_per_source: int = 3,
+    max_llm_calls: int = 25,
 ) -> List[ScoredClip]:
-    """Pre-rank by heuristic/heatmap, score top windows via Gemini, filter < 85, keep top 3/source."""
+    """Pre-rank by heuristic/heatmap/views, round-robin top diverse videos via Gemini, filter < 85."""
     playbook = load_json(cfg.memory_dir / "viral_playbook.json", {})
     min_score = cfg.min_viral_score if threshold is None else threshold
 
@@ -294,29 +311,49 @@ def score_and_filter_candidates(
         if not (15.0 <= seg.duration <= 58.0) or not _policy_safe(seg):
             continue
         pre = score_heuristic(seg, playbook)
-        grouped_raw.setdefault(seg.video_id, []).append((pre.score + int(seg.replay_heat * 10), seg))
+        view_bonus = 10 if seg.view_count >= 200_000 else (6 if seg.view_count >= 50_000 else 0)
+        grouped_raw.setdefault(seg.video_id, []).append(
+            (pre.score + int(seg.replay_heat * 10) + view_bonus, seg)
+        )
 
-    winners: List[ScoredClip] = []
+    # Round-robin across videos (1st best window of each video first, then 2nd best)
+    best_per_vid: List[tuple[int, CandidateSegment]] = []
+    second_per_vid: List[tuple[int, CandidateSegment]] = []
     for vid, scored_pairs in grouped_raw.items():
         scored_pairs.sort(key=lambda pair: pair[0], reverse=True)
-        # Send top 6 non-overlapping candidates per VOD to Gemini to respect free-tier RPM
-        shortlist: List[CandidateSegment] = []
-        for _, seg in scored_pairs:
-            if any(not (seg.end <= s.start or seg.start >= s.end) for s in shortlist):
+        picked_for_vid: List[CandidateSegment] = []
+        for pre_score, seg in scored_pairs:
+            if any(not (seg.end <= s.start or seg.start >= s.end) for s in picked_for_vid):
                 continue
-            shortlist.append(seg)
-            if len(shortlist) >= 6:
+            picked_for_vid.append(seg)
+            if len(picked_for_vid) == 1:
+                best_per_vid.append((pre_score, seg))
+            else:
+                second_per_vid.append((pre_score, seg))
                 break
 
-        picked: List[ScoredClip] = []
-        for seg in shortlist:
-            scored = _score_with_gemini(seg, playbook, cfg) or score_heuristic(seg, playbook)
-            if not scored.policy_safe or scored.score < min_score:
-                continue
-            picked.append(scored)
-            if len(picked) >= max_per_source:
-                break
-        winners.extend(picked)
+    best_per_vid.sort(key=lambda pair: pair[0], reverse=True)
+    second_per_vid.sort(key=lambda pair: pair[0], reverse=True)
+    shortlist = [seg for _, seg in (best_per_vid + second_per_vid)[:max_llm_calls]]
 
+    by_video_winners: dict[str, List[ScoredClip]] = {}
+    consecutive_llm_failures = 0
+    for seg in shortlist:
+        scored = None
+        if cfg.gemini_api_key and consecutive_llm_failures < 2:
+            scored = _score_with_gemini(seg, playbook, cfg)
+            if scored is None:
+                consecutive_llm_failures += 1
+            else:
+                consecutive_llm_failures = 0
+        if scored is None:
+            scored = score_heuristic(seg, playbook)
+        if not scored.policy_safe or scored.score < min_score:
+            continue
+        cur = by_video_winners.setdefault(scored.video_id, [])
+        if len(cur) < max_per_source:
+            cur.append(scored)
+
+    winners = [c for items in by_video_winners.values() for c in items]
     winners.sort(key=lambda c: c.score, reverse=True)
     return winners

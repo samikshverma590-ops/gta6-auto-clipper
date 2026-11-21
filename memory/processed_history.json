@@ -1,11 +1,103 @@
 {
   "schema_version": "1.0.0",
-  "processed_videos": [],
-  "published_clips": [],
+  "processed_videos": [
+    {
+      "video_id": "2431523148",
+      "source_url": "https://www.twitch.tv/xqc/clip/TrustworthyCarefulJalapenoKAPOW--CPhZdDJiBW-X0-C",
+      "processed_at": "2026-11-21T19:03:06.137296+00:00"
+    },
+    {
+      "video_id": "320451500",
+      "source_url": "https://www.twitch.tv/caseoh_/clip/CuriousBadEchidnaCoolStoryBro-g66TfyHbfF_r5vxZ",
+      "processed_at": "2026-11-21T19:03:06.137296+00:00"
+    }
+  ],
+  "published_clips": [
+    {
+      "clip_id": "2431523148_0_17",
+      "video_id": "2431523148",
+      "source_url": "https://www.twitch.tv/xqc/clip/TrustworthyCarefulJalapenoKAPOW--CPhZdDJiBW-X0-C",
+      "engine_used": "gtaclipper_split",
+      "score": 92,
+      "hook_archetype": "npc_ai_shock",
+      "hook_banner": "NPC ROASTS XQC",
+      "caption_preset": "gtaclipper_pill",
+      "duration_sec": 17.67,
+      "scheduled_at": "2026-11-21T19:03:06Z",
+      "provider": "upload_post",
+      "request_id": "3799f5afb1cc41ee9285a113685effcf",
+      "published_platforms": [
+        "youtube"
+      ],
+      "status": "published_or_queued",
+      "platforms": {
+        "youtube": {
+          "title": "XQC Gets Absolutely Roasted By GTA 6 NPC! #Shorts",
+          "description": "NPC ROASTS XQC — XQC Gets Absolutely Roasted By GTA 6 NPC\nCredit: xqc\n\nDoes this NPC deserve a raise or nah?\n\n#gta6 #xqc #gtavi #twitchclips #gaming #gta6leaks",
+          "first_comment": "Does this NPC deserve a raise or nah?",
+          "privacyStatus": "public",
+          "categoryId": "20",
+          "publishAt": "2026-11-21T19:03:06Z"
+        },
+        "tiktok": {
+          "caption": "GTA 6 NPCs are NOT playing around 💀 XQC just got humbled. Does this NPC deserve a raise or nah? #gta6 #xqc #gtavi #twitchclips #gaming #gta6leaks",
+          "post_mode": "MEDIA_UPLOAD",
+          "scheduled_at": "2026-11-21T19:03:06Z"
+        },
+        "instagram": {
+          "caption": "XQC tried to talk trash to a GTA 6 NPC and immediately regretted it. The AI in this game is actually built different. 💀🎮\nCredit: xqc\n\nDoes this NPC deserve a raise or nah?\n\n#gta6 #xqc #gtavi #twitchclips #gaming #gta6leaks",
+          "media_type": "REELS",
+          "scheduled_at": "2026-11-21T19:03:06Z"
+        }
+      },
+      "metrics_48h": null,
+      "evaluated": false
+    },
+    {
+      "clip_id": "320451500_0_35",
+      "video_id": "320451500",
+      "source_url": "https://www.twitch.tv/caseoh_/clip/CuriousBadEchidnaCoolStoryBro-g66TfyHbfF_r5vxZ",
+      "engine_used": "gtaclipper_split",
+      "score": 91,
+      "hook_archetype": "streamer_chaos_reaction",
+      "hook_banner": "IMPOSSIBLE SURVIVAL GLITCH",
+      "caption_preset": "gtaclipper_pill",
+      "duration_sec": 35.7,
+      "scheduled_at": "2026-11-21T22:33:06Z",
+      "provider": "upload_post",
+      "request_id": "5e5b4abd88454872aca98e146545f8aa",
+      "published_platforms": [
+        "youtube"
+      ],
+      "status": "scheduled",
+      "platforms": {
+        "youtube": {
+          "title": "Caseoh Reacts To The Most Broken GTA 6 Physics Glitch Ever #Shorts",
+          "description": "IMPOSSIBLE SURVIVAL GLITCH — Caseoh witnesses the most broken GTA 6 physics glitch ever\nCredit: caseoh_\n\nBug or feature? Let us know below! 👇\n\n#GTA6 #Caseoh #GTA6Gameplay #GamingClips #StreamerMoments #Viral",
+          "first_comment": "Bug or feature? Let us know below! 👇",
+          "privacyStatus": "public",
+          "categoryId": "20",
+          "publishAt": "2026-11-21T22:33:06Z"
+        },
+        "tiktok": {
+          "caption": "Wait... how is he still alive?! 💀 Caseoh losing his mind at these GTA 6 physics. #GTA6 #Caseoh Bug or feature? Let us know below! 👇 #GTA6 #Caseoh #GTA6Gameplay #GamingClips #StreamerMoments #Viral",
+          "post_mode": "MEDIA_UPLOAD",
+          "scheduled_at": "2026-11-21T22:33:06Z"
+        },
+        "instagram": {
+          "caption": "Caseoh just witnessed the impossible in GTA 6. Is this a bug or the most legendary NPC in the game? 💀🎮 Watch until the end to see the chaos unfold! #GTA6 #Caseoh #GamingMoments #GTA6Leaks #ViralGaming #StreamerHighlights\nCredit: caseoh_\n\nBug or feature? Let us know below! 👇\n\n#GTA6 #Caseoh #GTA6Gameplay #GamingClips #StreamerMoments #Viral",
+          "media_type": "REELS",
+          "scheduled_at": "2026-11-21T22:33:06Z"
+        }
+      },
+      "metrics_48h": null,
+      "evaluated": false
+    }
+  ],
   "stats": {
-    "total_videos_scanned": 0,
-    "total_clips_rendered": 0,
-    "total_clips_published": 0,
-    "last_run_utc": "2026-11-21T18:19:50.777682+00:00"
+    "total_videos_scanned": 2,
+    "total_clips_rendered": 2,
+    "total_clips_published": 2,
+    "last_run_utc": "2026-11-21T19:03:06.137296+00:00"
   }
 }

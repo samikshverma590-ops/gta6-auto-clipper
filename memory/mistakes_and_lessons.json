@@ -28,8 +28,66 @@
       "source": "Live Google AI Studio key verification (2026-11-21)",
       "rule": "gemini-2.5-flash returns 404 for new keys and gemini-3.8-flash can 503/timeout under load; default to gemini-3.1-flash-lite with automatic fallback to gemini-3.5-flash-lite and deterministic heuristic scorer.",
       "created_at": "2026-11-21T18:15:00Z"
+    },
+    {
+      "id": "lesson-005",
+      "category": "ytdlp_slice_extraction",
+      "source": "Live slice extraction diagnosis on MRlz84PjaAc (2026-11-21)",
+      "rule": "Install yt-dlp-ejs with --js-runtimes node and prefer protocol^=m3u8 formats when running --download-sections so yt-dlp fetches exact HLS segments without ffmpeg receiving 403 Forbidden on raw HTTPS URLs.",
+      "created_at": "2026-11-21T18:40:00Z"
+    },
+    {
+      "id": "lesson-006",
+      "category": "ytdlp_slice_extraction",
+      "source": "Live IPv4 vs IPv6 HLS test on MRlz84PjaAc (2026-11-21)",
+      "rule": "Force IPv4 (-4) with youtube:player_client=visionos on m3u8 --download-sections first to bypass IPv6 googlevideo.com 403s and GVS PO-token requirements.",
+      "created_at": "2026-11-21T18:47:00Z"
+    },
+    {
+      "id": "lesson-007",
+      "category": "upload_post_httpx_multipart",
+      "source": "Live Upload-Post publish error (2026-11-21)",
+      "rule": "When calling httpx.post(..., files=...), pass a dict with list values for repeated keys like {'platform[]': ['youtube']} rather than a list of tuples.",
+      "created_at": "2026-11-21T18:58:00Z"
     }
   ],
   "flop_postmortems": [],
-  "tool_recoveries": []
+  "tool_recoveries": [
+    {
+      "timestamp": "2026-11-21T18:37:45.678060+00:00",
+      "failed_engine": "yt-dlp-slice",
+      "error": "Command '['yt-dlp', '--js-runtimes', 'node', '--download-sections', '*28.23-62.55', '--force-keyframes-at-cuts', '-f', 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best', '--merge-output-format', 'mp4', '--no-playlist', '-o', '/tmp/clip_work/raw/slice_01_MRlz84Pja",
+      "fallback_applied": "skip_clip"
+    },
+    {
+      "timestamp": "2026-11-21T18:43:46.501121+00:00",
+      "failed_engine": "yt-dlp-slice",
+      "error": "Command '['yt-dlp', '--js-runtimes', 'node', '--download-sections', '*28.23-62.55', '--force-keyframes-at-cuts', '-f', 'bestvideo[height<=1080][protocol^=m3u8]+bestaudio[protocol^=m3u8]/best[height<=1080][protocol^=m3u8]/bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]",
+      "fallback_applied": "skip_clip"
+    },
+    {
+      "timestamp": "2026-11-21T18:50:39.478217+00:00",
+      "failed_engine": "yt-dlp-slice",
+      "error": "XSzis3oFLRyu1gtXcrxkCIGxTD-XU4e-CJCoItpIeEnpN5uLpOgG9vM0wxIFS59Bn&lsparams=cps%2Cmet%2Cmh%2Cmm%2Cmn%2Cms%2Cmv%2Cmvi%2Cpl%2Crms&lsig=APaTxxMwRQIhAJ9Tw2X7UYJg7AeADm3IS-EZWCPew2zIi0CdB05fJKAEAiBdgD1nTmh0XehK5rIQc4FpUTEO8mbQ0RNgcWPv3VjKiw%3D%3D.\nError opening input files: Server returned 403 Forbidden (access denied)\n\n\nERROR: ffmpeg exited with code 8\n",
+      "fallback_applied": "skip_clip"
+    },
+    {
+      "timestamp": "2026-11-21T18:50:48.658996+00:00",
+      "failed_engine": "yt-dlp-slice",
+      "error": "54I1wqAhUPpOs4TAiAI0V_pPGfuGBiBNXx_X8Wm0SIHb_amEow7o0dUewxVuw%3D%3D&lsparams=cps%2Cmet%2Cmh%2Cmm%2Cmn%2Cms%2Cmv%2Cmvi%2Cpl%2Crms&lsig=APaTxxMwRgIhAJfX4U-F9bwx8TloFTd0NAVHdJmvAgZy2l4C8qQENi-eAiEApF_INe0LnYEZrrSzTSzVbu5PMRBz50IP74igMacneIo%3D.\nError opening input files: Server returned 403 Forbidden (access denied)\n\n\nERROR: ffmpeg exited with code 8\n",
+      "fallback_applied": "skip_clip"
+    },
+    {
+      "timestamp": "2026-11-21T18:57:19.998262+00:00",
+      "failed_engine": "yt-dlp-slice",
+      "error": "v8t1BU3MeSydIdrKjjVeEAiBwAzhVXgWMGE473oJcv6MwriAIxIFZTYPG-FdWsntyBQ%3D%3D&lsparams=cps%2Cmet%2Cmh%2Cmm%2Cmn%2Cms%2Cmv%2Cmvi%2Cpl%2Crms&lsig=APaTxxMwRAIgVr-4NZohhzrkDJmNHd-ipOkbkdZlnaKxFExWzSMBc3ECIENgEn-E6d2hk1_RqnmoAAhzR0H0VhP0bsWWP5_ZCyOo.\nError opening input files: Server returned 403 Forbidden (access denied)\n\n\nERROR: ffmpeg exited with code 8\n",
+      "fallback_applied": "skip_clip"
+    },
+    {
+      "timestamp": "2026-11-21T19:03:06.136401+00:00",
+      "failed_engine": "yt-dlp-slice",
+      "error": "ZIpQFWi4-p06tqnNc8kcCIEbjSHTR4_TmtiCXrqvNNLweNqIC1OW2H_thhEGBmogZ&lsparams=cps%2Cmet%2Cmh%2Cmm%2Cmn%2Cms%2Cmv%2Cmvi%2Cpl%2Crms&lsig=APaTxxMwRQIhAOmOR9cUtyaKw62TSMM0IZqO8VFY8JNGO30kcUop_7txAiAWqOTtqnsA0kNFLS7L4TbtVgULFUI7CFVXyRLhIbbTPg%3D%3D.\nError opening input files: Server returned 403 Forbidden (access denied)\n\n\nERROR: ffmpeg exited with code 8\n",
+      "fallback_applied": "skip_clip"
+    }
+  ]
 }

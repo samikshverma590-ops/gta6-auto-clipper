@@ -1,22 +1,21 @@
 # ==============================================================================
 # GTA 6 Viral Creators & Launch-Week Leaderboard Sources
-# Phase 2 fetches transcripts & metadata ONLY (--write-auto-sub --skip-download).
+# Twitch 7-day top clips work at 1080p60 with zero cookies/bot-walls.
+# YouTube channels/searches also supported (best with YOUTUBE_COOKIES_TXT secret).
 # ==============================================================================
 
-# Top Launch-Week GTA 6 Creators & Streamers (by Streams Charts / YouTube Live)
+# Top Launch-Week GTA 6 Twitch Streamers (Top 7-Day Clips)
+https://www.twitch.tv/kaicenat/clips?filter=clips&range=7d
+https://www.twitch.tv/xqc/clips?filter=clips&range=7d
+https://www.twitch.tv/caseoh_/clips?filter=clips&range=7d
+https://www.twitch.tv/theburntpeanut/clips?filter=clips&range=7d
+https://www.twitch.tv/ramee/clips?filter=clips&range=7d
+https://www.twitch.tv/lordkebun/clips?filter=clips&range=7d
+https://www.twitch.tv/clix/clips?filter=clips&range=7d
+https://www.twitch.tv/jasontheween/clips?filter=clips&range=7d
+
+# Top YouTube GTA 6 Creators & Viral Searches
 ytsearch2:IShowSpeed GTA 6 funniest moment
-ytsearch2:Kai Cenat GTA 6 reaction
-ytsearch2:xQc GTA 6 clip
-ytsearch2:CaseOh GTA 6
-ytsearch2:Caylus Zhong GTA 6
-ytsearch2:Tom McKay GTA 6
-
-# High-Velocity GTA 6 Gameplay, Secrets & Viral Details
 ytsearch2:GTA 6 insane detail NPC secret Vice City
-ytsearch2:GTA 6 funny moments highlights Leonida
-
-# Direct Creator Channels
 https://www.youtube.com/@RockstarGames/videos
 https://www.youtube.com/@IGN/videos
-https://www.youtube.com/@TypicalGamer/videos
-https://www.youtube.com/@DarkViperAU/videos

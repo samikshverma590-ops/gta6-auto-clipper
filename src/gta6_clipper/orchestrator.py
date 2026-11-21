@@ -52,27 +52,53 @@ def choose_engine(clip: ScoredClip, cfg: AppConfig) -> str:
 
 
 def download_slice(clip: ScoredClip, out_path: Path) -> Path:
-    """Download ONLY the winning timestamp slice using yt-dlp --download-sections."""
+    """Download ONLY the winning timestamp slice (or pre-cut Twitch clip) via yt-dlp."""
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    if "twitch.tv/" in clip.video_url and "/clip/" in clip.video_url:
+        cmd = [
+            "yt-dlp",
+            "--no-playlist",
+            "--merge-output-format",
+            "mp4",
+            "-o",
+            str(out_path),
+            clip.video_url,
+        ]
+        subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=180)
+        return out_path
+
     section = f"*{clip.start:.2f}-{clip.end:.2f}"
     js_flags = ["--js-runtimes", "node"] if shutil.which("node") else []
-    cmd = [
+    base_cmd = [
         "yt-dlp",
+        "-4",
         *js_flags,
         "--download-sections",
         section,
-        "--force-keyframes-at-cuts",
         "-f",
-        "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best",
+        "bestvideo[height<=1080][protocol^=m3u8]+bestaudio[protocol^=m3u8]/best[height<=1080][protocol^=m3u8]/bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best",
         "--merge-output-format",
         "mp4",
         "--no-playlist",
         "-o",
         str(out_path),
-        clip.video_url,
     ]
-    subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=180)
-    return out_path
+    attempts = [
+        [*base_cmd, "--extractor-args", "youtube:player_client=visionos", clip.video_url],
+        [*base_cmd, "--force-keyframes-at-cuts", clip.video_url],
+        [*base_cmd, "--extractor-args", "youtube:player_client=android_vr,tv", clip.video_url],
+    ]
+    last_err: subprocess.CalledProcessError | None = None
+    for cmd in attempts:
+        try:
+            subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=180)
+            return out_path
+        except subprocess.CalledProcessError as exc:
+            last_err = exc
+            if out_path.exists():
+                out_path.unlink(missing_ok=True)
+    assert last_err is not None
+    raise last_err
 
 
 def _log_recovery(cfg: AppConfig, engine: str, error_msg: str, fallback: str) -> None:
@@ -90,7 +116,7 @@ def _log_recovery(cfg: AppConfig, engine: str, error_msg: str, fallback: str) ->
         {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "failed_engine": engine,
-            "error": error_msg[:300],
+            "error": error_msg[-350:],
             "fallback_applied": fallback,
         }
     )
@@ -123,7 +149,6 @@ def process_scored_clips(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     rendered: List[RenderedClip] = []
-    # Deduplicate by video_id first so top clips span multiple viral creators
     seen_videos: set[str] = set()
     selected: List[ScoredClip] = []
     for c in clips:
@@ -147,6 +172,9 @@ def process_scored_clips(
         engine = choose_engine(clip, cfg)
         try:
             download_slice(clip, raw_file)
+        except subprocess.CalledProcessError as exc:
+            _log_recovery(cfg, "yt-dlp-slice", exc.stderr or str(exc), "skip_clip")
+            continue
         except Exception as exc:
             _log_recovery(cfg, "yt-dlp-slice", str(exc), "skip_clip")
             continue

@@ -172,30 +172,44 @@ def fetch_subtitles_only(
     js_flags = ["--js-runtimes", "node"] if shutil.which("node") else []
 
     for source in target_sources:
-        cmd = [
+        base_args = [
             "yt-dlp",
             *js_flags,
             "--skip-download",
             "--write-auto-sub",
             "--write-sub",
             "--sub-langs",
-            "en",
+            "en.*,en",
             "--sub-format",
             "vtt/srt",
             "--playlist-end",
             str(playlist_items),
             "--match-filter",
-            "!is_live & duration >= 45 & duration <= 28800",
+            "!is_live & duration >= 15 & duration <= 28800",
             "--ignore-errors",
             "--no-warnings",
             "--write-info-json",
             "-o",
             str(subs_dir / "%(id)s.%(ext)s"),
-            source,
         ]
+        before_count = len(list(subs_dir.glob("*.info.json")))
         try:
-            subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=90)
-        except (OSError, subprocess.TimeoutExpired):
+            proc = subprocess.run([*base_args, source], check=False, capture_output=True, text=True, timeout=90)
+            after_count = len(list(subs_dir.glob("*.info.json")))
+            if after_count == before_count:
+                # Self-healing retry with alternate YouTube player clients for datacenter IPs
+                proc2 = subprocess.run(
+                    [*base_args, "--extractor-args", "youtube:player_client=android_vr,tv", source],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=90,
+                )
+                if len(list(subs_dir.glob("*.info.json"))) == before_count and (proc2.stderr or proc.stderr):
+                    err_line = (proc2.stderr or proc.stderr).strip().splitlines()[-1][:200]
+                    print(f"[discovery] 0 items for {source}: {err_line}")
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            print(f"[discovery] timeout/error for {source}: {exc}")
             continue
 
     for info_path in sorted(subs_dir.glob("*.info.json")):
@@ -211,8 +225,14 @@ def fetch_subtitles_only(
         seen_ids.add(vid)
         title = meta.get("title", "")
         desc = (meta.get("description") or "").lower()
-        combined = f"{title} {desc}".lower()
-        if not any(kw in combined for kw in ("gta", "grand theft auto", "leonida", "vice city")):
+        categories = " ".join(str(c) for c in (meta.get("categories") or [])).lower()
+        webpage_url = meta.get("webpage_url") or f"https://www.youtube.com/watch?v={vid}"
+        is_twitch_clip = "twitch.tv/" in webpage_url and "/clip/" in webpage_url
+        combined = f"{title} {desc} {categories}".lower()
+        if not any(
+            kw in combined
+            for kw in ("gta", "grand theft auto", "leonida", "vice city")
+        ):
             continue
 
         sub_file = None
@@ -227,15 +247,46 @@ def fetch_subtitles_only(
             )
             sub_file = matches[0] if matches else None
 
+        channel = meta.get("channel") or meta.get("uploader") or "unknown"
+        if is_twitch_clip:
+            m_chan = re.search(r"twitch\.tv/([^/]+)/clip/", webpage_url)
+            if m_chan:
+                channel = m_chan.group(1)
+
         if sub_file is None:
+            dur = float(meta.get("duration") or 0.0)
+            if is_twitch_clip and 15.0 <= dur <= 58.0:
+                candidates.append(
+                    CandidateSegment(
+                        video_id=vid,
+                        video_url=webpage_url,
+                        video_title=title,
+                        channel=channel,
+                        start=0.0,
+                        end=round(dur, 2),
+                        text=f"{channel} plays GTA 6: {title}",
+                        has_webcam_hint=True,
+                        replay_heat=0.0,
+                        view_count=int(meta.get("view_count") or 0),
+                    )
+                )
             continue
 
         cues = parse_vtt_or_srt(sub_file.read_text(encoding="utf-8", errors="replace"))
-        channel = meta.get("channel") or meta.get("uploader") or "unknown"
-        webpage_url = meta.get("webpage_url") or f"https://www.youtube.com/watch?v={vid}"
-        webcam_hint = any(
+        webcam_hint = is_twitch_clip or any(
             kw in title.lower()
-            for kw in ("react", "reaction", "stream", "vod", "live", "playthrough", "ishowspeed", "kai cenat", "xqc", "caseoh")
+            for kw in (
+                "react",
+                "reaction",
+                "stream",
+                "vod",
+                "live",
+                "playthrough",
+                "ishowspeed",
+                "kai cenat",
+                "xqc",
+                "caseoh",
+            )
         )
         candidates.extend(
             build_candidate_windows(

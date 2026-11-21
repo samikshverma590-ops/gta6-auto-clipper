@@ -123,40 +123,39 @@ def _publish_via_upload_post(
     if not connected_platforms:
         return {"skipped": "no_connected_upload_post_platforms", "profile": profile}
 
-    data: List[tuple] = [
-        ("user", profile),
-        ("title", payloads["youtube"]["title"]),
-        ("async_upload", "true"),
-    ]
-    for plat in connected_platforms:
-        data.append(("platform[]", plat))
+    data: dict[str, object] = {
+        "user": profile,
+        "title": payloads["youtube"]["title"],
+        "async_upload": "true",
+        "platform[]": connected_platforms,
+    }
 
     if "youtube" in connected_platforms:
-        data.extend(
-            [
-                ("youtube_title", payloads["youtube"]["title"]),
-                ("youtube_description", payloads["youtube"]["description"]),
-                ("youtube_first_comment", payloads["youtube"]["first_comment"]),
-                ("privacyStatus", payloads["youtube"]["privacyStatus"]),
-                ("categoryId", payloads["youtube"]["categoryId"]),
-            ]
+        data.update(
+            {
+                "youtube_title": payloads["youtube"]["title"],
+                "youtube_description": payloads["youtube"]["description"],
+                "youtube_first_comment": payloads["youtube"]["first_comment"],
+                "privacyStatus": payloads["youtube"]["privacyStatus"],
+                "categoryId": payloads["youtube"]["categoryId"],
+            }
         )
     if "tiktok" in connected_platforms:
-        data.extend(
-            [
-                ("tiktok_title", payloads["tiktok"]["caption"]),
-                ("post_mode", payloads["tiktok"]["post_mode"]),
-            ]
+        data.update(
+            {
+                "tiktok_title": payloads["tiktok"]["caption"],
+                "post_mode": payloads["tiktok"]["post_mode"],
+            }
         )
     if "instagram" in connected_platforms:
-        data.extend(
-            [
-                ("instagram_title", payloads["instagram"]["caption"]),
-                ("media_type", payloads["instagram"]["media_type"]),
-            ]
+        data.update(
+            {
+                "instagram_title": payloads["instagram"]["caption"],
+                "media_type": payloads["instagram"]["media_type"],
+            }
         )
     if schedule_future:
-        data.append(("scheduled_date", payloads["youtube"]["publishAt"]))
+        data["scheduled_date"] = payloads["youtube"]["publishAt"]
 
     with video_path.open("rb") as fh:
         resp = httpx.post(
@@ -281,17 +280,18 @@ def publish_and_cleanup(clips: List[RenderedClip], cfg: AppConfig) -> dict:
             "metrics_48h": None,
             "evaluated": False,
         }
-        history.setdefault("published_clips", []).append(record)
-        if clip.video_id not in {
-            v.get("video_id") for v in history.get("processed_videos", [])
-        }:
-            history.setdefault("processed_videos", []).append(
-                {
-                    "video_id": clip.video_id,
-                    "source_url": clip.video_url,
-                    "processed_at": now.isoformat(),
-                }
-            )
+        if not status.startswith("error:"):
+            history.setdefault("published_clips", []).append(record)
+            if clip.video_id not in {
+                v.get("video_id") for v in history.get("processed_videos", [])
+            }:
+                history.setdefault("processed_videos", []).append(
+                    {
+                        "video_id": clip.video_id,
+                        "source_url": clip.video_url,
+                        "processed_at": now.isoformat(),
+                    }
+                )
         results.append(record)
 
     stats = history.setdefault("stats", {})

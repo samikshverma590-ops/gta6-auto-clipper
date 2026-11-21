@@ -115,6 +115,25 @@ def test_scorer_threshold_and_policy_guardrail(tmp_path: Path):
     assert choose_engine(winners[0], cfg) == "gtaclipper_split"
 
 
+def test_twitch_clip_scoring_and_engine(tmp_path: Path):
+    cfg = _isolated_cfg(tmp_path)
+    tw = CandidateSegment(
+        video_id="tw_1",
+        video_url="https://www.twitch.tv/xqc/clip/SomeViralClip-123",
+        video_title="xQc commits Grand Theft Auto for the first time in GTA 6!",
+        channel="xqc",
+        start=0.0,
+        end=34.0,
+        text="xqc plays GTA 6: What! Wait look at xQc in GTA 6 Vice City!",
+        has_webcam_hint=True,
+        view_count=55000,
+    )
+    winners = score_and_filter_candidates([tw], cfg)
+    assert len(winners) == 1
+    assert winners[0].score >= 85
+    assert choose_engine(winners[0], cfg) == "gtaclipper_split"
+
+
 def test_cutawan_camera_pan_and_caption_layout(tmp_path: Path):
     cfg = _isolated_cfg(tmp_path)
     presets = load_json(cfg.config_dir / "presets.json")
@@ -219,6 +238,41 @@ def test_resolve_upload_post_targets_filters_connected(monkeypatch, tmp_path: Pa
     profile, platforms = publisher.resolve_upload_post_targets(cfg)
     assert profile == "default"
     assert platforms == ["youtube"]
+
+
+def test_upload_post_multipart_serialization(monkeypatch, tmp_path: Path):
+    import httpx
+    from gta6_clipper import publisher
+
+    cfg = _isolated_cfg(tmp_path)
+    vid = tmp_path / "clip.mp4"
+    vid.write_bytes(b"\x00" * 2048)
+    cfg = AppConfig(**{**cfg.__dict__, "upload_post_api_key": "k", "dry_run": False})
+
+    monkeypatch.setattr(publisher, "resolve_upload_post_targets", lambda _c: ("default", ["youtube"]))
+    captured = {}
+
+    def _fake_post(url, headers=None, data=None, files=None, timeout=None):
+        req = httpx.Request("POST", url, headers=headers, data=data, files=files)
+        captured["len"] = len(req.read())
+        class _R:
+            def raise_for_status(self): ...
+            def json(self):
+                return {"success": True, "request_id": "req-123"}
+        return _R()
+
+    monkeypatch.setattr(publisher.httpx, "post", _fake_post)
+    clip = RenderedClip(
+        clip_id="c1", video_id="v1", video_url="https://twitch.tv/xqc/clip/1",
+        output_path=str(vid), engine_used="gtaclipper_split", score=91,
+        hook_archetype="npc_ai_shock", hook_banner="NPC ROASTED HIM",
+        title_idea="Test", caption_preset="gtaclipper_pill", duration=20.0,
+        quality_passed=True, youtube_title="Test #Shorts",
+    )
+    res = publisher.publish_and_cleanup([clip], cfg)
+    assert captured["len"] > 2048
+    assert res["records"][0]["request_id"] == "req-123"
+    assert res["records"][0]["status"] == "published_or_queued"
 
 
 def test_learner_boosts_winners_and_logs_flops(tmp_path: Path):
