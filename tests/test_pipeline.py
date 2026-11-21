@@ -192,6 +192,35 @@ def test_publisher_stagger_and_disk_wipe(tmp_path: Path):
     assert not work.exists()
 
 
+def test_resolve_upload_post_targets_filters_connected(monkeypatch, tmp_path: Path):
+    from gta6_clipper import publisher
+
+    cfg = _isolated_cfg(tmp_path)
+    cfg = AppConfig(**{**cfg.__dict__, "upload_post_api_key": "test-key", "upload_post_profile": "default"})
+
+    class _FakeResp:
+        def raise_for_status(self): ...
+        def json(self):
+            return {
+                "success": True,
+                "profiles": [
+                    {
+                        "username": "default",
+                        "blocked": False,
+                        "social_accounts": {
+                            "tiktok": "",
+                            "youtube": {"display_name": "SmoothScrolls", "reauth_required": False},
+                        },
+                    }
+                ],
+            }
+
+    monkeypatch.setattr(publisher.httpx, "get", lambda *a, **kw: _FakeResp())
+    profile, platforms = publisher.resolve_upload_post_targets(cfg)
+    assert profile == "default"
+    assert platforms == ["youtube"]
+
+
 def test_learner_boosts_winners_and_logs_flops(tmp_path: Path):
     cfg = _isolated_cfg(tmp_path)
     hist_path = cfg.memory_dir / "processed_history.json"

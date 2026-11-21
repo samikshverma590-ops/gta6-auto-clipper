@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-import json
 import shutil
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import httpx
 
 from .config import AppConfig, load_json, save_json
 from .orchestrator import RenderedClip
+
+SUPPORTED_SHORT_PLATFORMS = ("youtube", "tiktok", "instagram")
 
 
 def truncate_youtube_title(title: str, max_len: int = 100) -> str:
@@ -33,21 +34,29 @@ def build_platform_payload(
     tt_tpl = templates.get("tiktok", {})
     ig_tpl = templates.get("instagram", {})
 
-    question = (yt_tpl.get("pinned_question_templates") or ["Rate this GTA 6 clip 1-10!"])[0]
+    question = (
+        yt_tpl.get("pinned_question_templates") or ["Rate this GTA 6 clip 1-10!"]
+    )[0]
     yt_tags = " ".join(yt_tpl.get("hashtags", ["#Shorts", "#GTA6", "#GTAVI"]))
     tt_tags = " ".join(tt_tpl.get("hashtags", ["#gta6", "#gtavi", "#vicecity"]))
     ig_tags = " ".join(ig_tpl.get("hashtags", ["#gta6", "#gtavi", "#gamingreels"]))
 
-    yt_title = truncate_youtube_title(f"{clip.title_idea} {yt_tpl.get('title_suffix', '#Shorts')}")
+    yt_title = truncate_youtube_title(
+        f"{clip.title_idea} {yt_tpl.get('title_suffix', '#Shorts')}"
+    )
     yt_desc = f"{clip.hook_banner} — {clip.title_idea}\n\n{question}\n\n{yt_tags}"
     tt_caption = f"{clip.hook_banner}: {clip.title_idea} {question} {tt_tags}"[:300]
-    ig_caption = f"{clip.hook_banner} 🔥\n{clip.title_idea}\n\n{question}\n\n{ig_tags}"[:2200]
+    ig_caption = f"{clip.hook_banner} 🔥\n{clip.title_idea}\n\n{question}\n\n{ig_tags}"[
+        :2200
+    ]
 
     return {
         "youtube": {
             "title": yt_title,
             "description": yt_desc,
+            "first_comment": question,
             "privacyStatus": "public",
+            "categoryId": "20",
             "publishAt": scheduled_iso,
         },
         "tiktok": {
@@ -63,37 +72,101 @@ def build_platform_payload(
     }
 
 
+def resolve_upload_post_targets(cfg: AppConfig) -> Tuple[str, List[str]]:
+    """Query Upload-Post /uploadposts/users to find active profile & connected platforms."""
+    fallback_profile = cfg.upload_post_profile or "default"
+    if not cfg.upload_post_api_key:
+        return fallback_profile, list(SUPPORTED_SHORT_PLATFORMS)
+    try:
+        resp = httpx.get(
+            "https://api.upload-post.com/api/uploadposts/users",
+            headers={"Authorization": f"Apikey {cfg.upload_post_api_key}"},
+            timeout=15.0,
+        )
+        resp.raise_for_status()
+        profiles = resp.json().get("profiles", [])
+        chosen = next(
+            (p for p in profiles if p.get("username") == fallback_profile and not p.get("blocked")),
+            next((p for p in profiles if not p.get("blocked")), None),
+        )
+        if not chosen:
+            return fallback_profile, []
+        accounts = chosen.get("social_accounts") or {}
+        connected = [
+            p
+            for p in SUPPORTED_SHORT_PLATFORMS
+            if isinstance(accounts.get(p), dict)
+            and not accounts[p].get("reauth_required", False)
+        ]
+        return chosen.get("username", fallback_profile), connected
+    except Exception:
+        return fallback_profile, ["youtube"]
+
+
 def _publish_via_upload_post(
-    clip: RenderedClip, payloads: Dict[str, dict], cfg: AppConfig
+    clip: RenderedClip,
+    payloads: Dict[str, dict],
+    cfg: AppConfig,
+    schedule_future: bool,
 ) -> dict | None:
     if not cfg.upload_post_api_key:
         return None
-    url = "https://api.upload-post.com/api/upload"
     video_path = Path(clip.output_path)
     if not video_path.is_file():
         return None
-    data = {
-        "user": cfg.upload_post_profile,
-        "platform[]": ["youtube", "tiktok", "instagram"],
-        "youtube_title": payloads["youtube"]["title"],
-        "youtube_description": payloads["youtube"]["description"],
-        "privacyStatus": "public",
-        "tiktok_title": payloads["tiktok"]["caption"],
-        "post_mode": "MEDIA_UPLOAD",
-        "instagram_title": payloads["instagram"]["caption"],
-        "media_type": "REELS",
-        "scheduled_date": payloads["youtube"]["publishAt"],
-    }
+
+    profile, connected_platforms = resolve_upload_post_targets(cfg)
+    if not connected_platforms:
+        return {"skipped": "no_connected_upload_post_platforms", "profile": profile}
+
+    data: List[tuple] = [
+        ("user", profile),
+        ("title", payloads["youtube"]["title"]),
+        ("async_upload", "true"),
+    ]
+    for plat in connected_platforms:
+        data.append(("platform[]", plat))
+
+    if "youtube" in connected_platforms:
+        data.extend(
+            [
+                ("youtube_title", payloads["youtube"]["title"]),
+                ("youtube_description", payloads["youtube"]["description"]),
+                ("youtube_first_comment", payloads["youtube"]["first_comment"]),
+                ("privacyStatus", payloads["youtube"]["privacyStatus"]),
+                ("categoryId", payloads["youtube"]["categoryId"]),
+            ]
+        )
+    if "tiktok" in connected_platforms:
+        data.extend(
+            [
+                ("tiktok_title", payloads["tiktok"]["caption"]),
+                ("post_mode", payloads["tiktok"]["post_mode"]),
+            ]
+        )
+    if "instagram" in connected_platforms:
+        data.extend(
+            [
+                ("instagram_title", payloads["instagram"]["caption"]),
+                ("media_type", payloads["instagram"]["media_type"]),
+            ]
+        )
+    if schedule_future:
+        data.append(("scheduled_date", payloads["youtube"]["publishAt"]))
+
     with video_path.open("rb") as fh:
         resp = httpx.post(
-            url,
+            "https://api.upload-post.com/api/upload",
             headers={"Authorization": f"Apikey {cfg.upload_post_api_key}"},
             data=data,
             files={"video": (video_path.name, fh, "video/mp4")},
-            timeout=120.0,
+            timeout=180.0,
         )
     resp.raise_for_status()
-    return resp.json()
+    result = resp.json()
+    result["profile"] = profile
+    result["platforms"] = connected_platforms
+    return result
 
 
 def _publish_via_trypost_or_postiz(
@@ -134,15 +207,18 @@ def wipe_work_dir(work_dir: Path) -> bool:
     return not work_dir.exists()
 
 
-def publish_and_cleanup(
-    clips: List[RenderedClip], cfg: AppConfig
-) -> dict:
+def publish_and_cleanup(clips: List[RenderedClip], cfg: AppConfig) -> dict:
     """Publish/schedule verified clips with 3-4h stagger and wipe /tmp/clip_work/."""
     playbook = load_json(cfg.memory_dir / "viral_playbook.json", {})
     history_path = cfg.memory_dir / "processed_history.json"
     history = load_json(
         history_path,
-        {"schema_version": "1.0.0", "processed_videos": [], "published_clips": [], "stats": {}},
+        {
+            "schema_version": "1.0.0",
+            "processed_videos": [],
+            "published_clips": [],
+            "stats": {},
+        },
     )
 
     now = datetime.now(timezone.utc)
@@ -152,12 +228,13 @@ def publish_and_cleanup(
         if not clip.quality_passed:
             continue
         sched_dt = now + timedelta(hours=idx * cfg.stagger_hours)
-        sched_iso = sched_dt.isoformat()
+        sched_iso = sched_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
         payloads = build_platform_payload(clip, playbook, sched_iso)
 
         status = "dry_run_staged"
         provider = "dry_run"
-        api_resp: dict | None = None
+        request_id = None
+        published_platforms: List[str] = []
 
         if not cfg.dry_run:
             try:
@@ -166,10 +243,18 @@ def publish_and_cleanup(
                     provider = api_resp["provider"]
                     status = "scheduled"
                 else:
-                    api_resp = _publish_via_upload_post(clip, payloads, cfg)
+                    api_resp = _publish_via_upload_post(
+                        clip, payloads, cfg, schedule_future=(idx > 0)
+                    )
                     if api_resp:
                         provider = "upload_post"
-                        status = "scheduled"
+                        request_id = api_resp.get("request_id") or api_resp.get("job_id")
+                        published_platforms = api_resp.get("platforms", [])
+                        status = (
+                            "skipped_no_accounts"
+                            if api_resp.get("skipped")
+                            else ("scheduled" if idx > 0 else "published_or_queued")
+                        )
             except Exception as exc:
                 status = f"error:{exc}"
 
@@ -185,6 +270,8 @@ def publish_and_cleanup(
             "duration_sec": clip.duration,
             "scheduled_at": sched_iso,
             "provider": provider,
+            "request_id": request_id,
+            "published_platforms": published_platforms,
             "status": status,
             "platforms": payloads,
             "metrics_48h": None,

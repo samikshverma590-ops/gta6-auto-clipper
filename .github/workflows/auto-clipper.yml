@@ -29,7 +29,7 @@ jobs:
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
       OPENSHORTS_API_KEY: ${{ secrets.OPENSHORTS_API_KEY }}
       UPLOAD_POST_API_KEY: ${{ secrets.UPLOAD_POST_API_KEY }}
-      UPLOAD_POST_PROFILE: ${{ secrets.UPLOAD_POST_PROFILE || 'gta6clips' }}
+      UPLOAD_POST_PROFILE: ${{ secrets.UPLOAD_POST_PROFILE || 'default' }}
       TRYPOST_API_URL: ${{ secrets.TRYPOST_API_URL }}
       TRYPOST_API_KEY: ${{ secrets.TRYPOST_API_KEY }}
       POSTIZ_API_URL: ${{ secrets.POSTIZ_API_URL }}

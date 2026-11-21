@@ -85,7 +85,7 @@ def load_config(repo_root: Path | None = None) -> AppConfig:
         postiz_api_url=os.environ.get("POSTIZ_API_URL", "").strip(),
         postiz_api_key=os.environ.get("POSTIZ_API_KEY", "").strip(),
         upload_post_api_key=os.environ.get("UPLOAD_POST_API_KEY", "").strip(),
-        upload_post_profile=os.environ.get("UPLOAD_POST_PROFILE", "gta6clips").strip(),
+        upload_post_profile=os.environ.get("UPLOAD_POST_PROFILE", "default").strip(),
         youtube_client_secrets_json=os.environ.get(
             "YOUTUBE_CLIENT_SECRETS_JSON", ""
         ).strip(),
