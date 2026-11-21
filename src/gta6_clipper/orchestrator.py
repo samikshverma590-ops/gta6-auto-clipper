@@ -1,0 +1,178 @@
+"""Phase 3: Hybrid clip orchestrator — routes between GTAClipper, OpenShorts, and FFmpeg."""
+
+from __future__ import annotations
+
+import subprocess
+from dataclasses import dataclass, asdict
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import List
+
+import httpx
+
+from .config import AppConfig, load_json, save_json
+from .editor import render_vertical_clip
+from .quality_gate import validate_clip
+from .scorer import ScoredClip
+
+
+@dataclass
+class RenderedClip:
+    clip_id: str
+    video_id: str
+    video_url: str
+    output_path: str
+    engine_used: str
+    score: int
+    hook_archetype: str
+    hook_banner: str
+    title_idea: str
+    caption_preset: str
+    duration: float
+    quality_passed: bool
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+def choose_engine(clip: ScoredClip, cfg: AppConfig) -> str:
+    """Dynamically pick optimal engine for stream type."""
+    if clip.has_webcam_hint:
+        return "gtaclipper_split"
+    if cfg.openshorts_api_key:
+        return "openshorts_mcp"
+    return "openshorts_local_ffmpeg"
+
+
+def download_slice(clip: ScoredClip, out_path: Path) -> Path:
+    """Download ONLY the winning timestamp slice using yt-dlp --download-sections."""
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    section = f"*{clip.start:.2f}-{clip.end:.2f}"
+    cmd = [
+        "yt-dlp",
+        "--download-sections",
+        section,
+        "--force-keyframes-at-cuts",
+        "-f",
+        "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best",
+        "--merge-output-format",
+        "mp4",
+        "--no-playlist",
+        "-o",
+        str(out_path),
+        clip.video_url,
+    ]
+    subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=180)
+    return out_path
+
+
+def _log_recovery(cfg: AppConfig, engine: str, error_msg: str, fallback: str) -> None:
+    lessons_path = cfg.memory_dir / "mistakes_and_lessons.json"
+    data = load_json(lessons_path, {"schema_version": "1.0.0", "lessons": [], "flop_postmortems": [], "tool_recoveries": []})
+    data.setdefault("tool_recoveries", []).append(
+        {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "failed_engine": engine,
+            "error": error_msg[:300],
+            "fallback_applied": fallback,
+        }
+    )
+    save_json(lessons_path, data)
+
+
+def _try_openshorts_mcp(clip: ScoredClip, cfg: AppConfig) -> bool:
+    """Optional check against OpenShorts MCP endpoint if API key is provided."""
+    if not cfg.openshorts_api_key:
+        return False
+    try:
+        resp = httpx.post(
+            cfg.openshorts_mcp_url,
+            headers={"Authorization": f"Bearer {cfg.openshorts_api_key}"},
+            json={"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
+            timeout=10.0,
+        )
+        return resp.status_code == 200
+    except Exception:
+        return False
+
+
+def process_scored_clips(
+    clips: List[ScoredClip], cfg: AppConfig
+) -> List[RenderedClip]:
+    """Download slice-only media into /tmp/clip_work/, render 9:16, and pass quality gate."""
+    raw_dir = cfg.work_dir / "raw"
+    out_dir = cfg.work_dir / "rendered"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    rendered: List[RenderedClip] = []
+    for idx, clip in enumerate(clips, start=1):
+        clip_id = f"{clip.video_id}_{int(clip.start)}_{int(clip.end)}"
+        raw_file = raw_dir / f"slice_{idx:02d}_{clip.video_id}.mp4"
+        out_file = out_dir / f"clip_{idx:02d}_{clip.video_id}.mp4"
+
+        engine = choose_engine(clip, cfg)
+        try:
+            download_slice(clip, raw_file)
+        except Exception as exc:
+            _log_recovery(cfg, "yt-dlp-slice", str(exc), "skip_clip")
+            continue
+
+        split_cam = engine == "gtaclipper_split"
+        if engine == "openshorts_mcp" and not _try_openshorts_mcp(clip, cfg):
+            _log_recovery(cfg, "openshorts_mcp", "MCP unreachable or unauthenticated", "ffmpeg_hybrid")
+            engine = "ffmpeg_hybrid"
+
+        try:
+            render_vertical_clip(
+                input_path=raw_file,
+                output_path=out_file,
+                hook_banner=clip.hook_banner,
+                transcript_text=clip.text,
+                preset_name=clip.caption_preset,
+                split_facecam=split_cam,
+                cfg=cfg,
+            )
+            report = validate_clip(out_file)
+            if not report.passed:
+                _log_recovery(
+                    cfg,
+                    engine,
+                    "; ".join(report.errors),
+                    "ffmpeg_safe_center_fallback",
+                )
+                fallback_out = out_dir / f"clip_{idx:02d}_{clip.video_id}_fb.mp4"
+                render_vertical_clip(
+                    input_path=raw_file,
+                    output_path=fallback_out,
+                    hook_banner=clip.hook_banner,
+                    transcript_text=clip.text,
+                    preset_name="gtaclipper_pill",
+                    split_facecam=False,
+                    cfg=cfg,
+                )
+                out_file = fallback_out
+                engine = "ffmpeg_safe_center_fallback"
+                report = validate_clip(out_file)
+
+            rendered.append(
+                RenderedClip(
+                    clip_id=clip_id,
+                    video_id=clip.video_id,
+                    video_url=clip.video_url,
+                    output_path=str(out_file),
+                    engine_used=engine,
+                    score=clip.score,
+                    hook_archetype=clip.hook_archetype,
+                    hook_banner=clip.hook_banner,
+                    title_idea=clip.title_idea,
+                    caption_preset=clip.caption_preset,
+                    duration=report.duration,
+                    quality_passed=report.passed,
+                )
+            )
+        except Exception as exc:
+            _log_recovery(cfg, engine, str(exc), "aborted_clip")
+            continue
+
+    return rendered

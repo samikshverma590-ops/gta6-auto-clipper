@@ -1,0 +1,136 @@
+{
+  "updated_at": "2026-11-21T17:50:00Z",
+  "game_context": {
+    "title": "Grand Theft Auto VI (GTA 6)",
+    "release_date": "2026-11-19",
+    "platforms": ["PS5", "Xbox Series X|S"],
+    "setting": "Vice City & State of Leonida",
+    "protagonists": ["Jason Duval", "Lucia Caminos"],
+    "launch_metrics": {
+      "peak_concurrent_stream_viewers": 7886176,
+      "virlo_peak_views_per_hour": 977291,
+      "metacritic_score": 99
+    }
+  },
+  "rockstar_policy_guardrails": {
+    "disallow_isolated_cutscenes": true,
+    "disallow_ending_spoilers": true,
+    "disallow_prelaunch_leaked_builds": true,
+    "require_transformative_layer": true,
+    "notes": "Rockstar video policy (updated 2025-01-10) flags pure unedited cutscenes, ending reveals, and leaked builds. Clips must include hook banners, dynamic captions, reaction framing, or commentary."
+  },
+  "viral_sources_analyzed": [
+    {
+      "creator": "@gta_6.2026",
+      "platform": "TikTok",
+      "views": 25251987,
+      "topic": "Launch hype & Vice City realism shock",
+      "hook_pattern": "First-frame photorealism + 3-word curiosity banner"
+    },
+    {
+      "creator": "@dyllieshorts",
+      "platform": "Instagram",
+      "views": 18612013,
+      "topic": "NPC AI & open-world details",
+      "hook_pattern": "Mid-action encounter + bold yellow caption emphasis"
+    },
+    {
+      "creator": "@juliantaytm",
+      "platform": "Instagram",
+      "views": 11766364,
+      "topic": "Hidden details & Leonida secrets",
+      "hook_pattern": "Direct 'Rockstar actually added...' opener under 1.5s"
+    },
+    {
+      "creator": "@mmmjoemele",
+      "platform": "TikTok",
+      "views": 10700000,
+      "topic": "Launch-night reactions & comedy",
+      "hook_pattern": "Split-screen reaction + sudden audio spike"
+    },
+    {
+      "creator": "@dylan.page",
+      "platform": "TikTok",
+      "views": 9400000,
+      "topic": "GTA 6 launch news & viral moments",
+      "hook_pattern": "Fast-cut 2.5s pacing + top headline banner"
+    }
+  ],
+  "hook_archetypes": [
+    {
+      "id": "npc_ai_shock",
+      "label": "NPC & Realism Shock",
+      "banner_examples": ["NPC DID WHAT?!", "PS6 GRAPHICS?!", "REALISM IS INSANE"],
+      "weight": 1.25,
+      "keywords": ["npc", "detail", "realistic", "weather", "water", "physics", "cat", "dog", "snake", "crab", "graphics", "ps5", "leonida", "vice beach"]
+    },
+    {
+      "id": "hidden_secret_easter_egg",
+      "label": "Hidden Secrets & Easter Eggs",
+      "banner_examples": ["ROCKSTAR HID THIS", "MISSED THIS DETAIL", "SECRET LOCATION"],
+      "weight": 1.20,
+      "keywords": ["secret", "easter egg", "hidden", "dexter", "mandy", "serial", "mission", "clue", "detail", "location", "map"]
+    },
+    {
+      "id": "streamer_chaos_reaction",
+      "label": "Streamer Chaos & Jump Scare",
+      "banner_examples": ["WAIT FOR IT", "HE PANICKED", "NO WAY BRO"],
+      "weight": 1.15,
+      "keywords": ["what", "bro", "no way", "oh my god", "scream", "laugh", "crazy", "insane", "jumped", "arrested", "wasted", "code"]
+    },
+    {
+      "id": "gameplay_mechanic_discovery",
+      "label": "New Mechanics & Features",
+      "banner_examples": ["NEW FEATURE?!", "FINALLY FIXED", "HOW TO DO THIS"],
+      "weight": 1.10,
+      "keywords": ["sprint", "hotwire", "slim jim", "fuel", "gas", "gym", "paint", "phone", "app", "first person", "jason", "lucia", "car", "steal"]
+    }
+  ],
+  "pacing_and_duration": {
+    "cut_interval_target_sec": [2.0, 4.0],
+    "optimal_duration_buckets": {
+      "short_punch": { "range": [15, 28], "weight": 1.20 },
+      "mid_story": { "range": [29, 45], "weight": 1.10 },
+      "deep_breakdown": { "range": [46, 58], "weight": 0.95 }
+    },
+    "caption_preset_weights": {
+      "gtaclipper_pill": 1.25,
+      "cutawan_beast": 1.10,
+      "openshorts_karaoke": 1.00
+    }
+  },
+  "scoring_rubric": {
+    "threshold": 85,
+    "max_per_source": 3,
+    "dimensions": {
+      "hook_impact": 35,
+      "escalation_arc": 25,
+      "sensory_spike": 20,
+      "cold_viewer_clarity": 20
+    }
+  },
+  "platform_metadata_templates": {
+    "youtube": {
+      "max_title_len": 100,
+      "title_suffix": " #Shorts",
+      "hashtags": ["#Shorts", "#GTA6", "#GTAVI", "#ViceCity", "#Leonida"],
+      "pinned_question_templates": [
+        "Did you notice this detail in Leonida yet? 👇",
+        "Rate this GTA 6 moment 1-10 🔥",
+        "Jason or Lucia — who are you playing first?"
+      ]
+    },
+    "tiktok": {
+      "hashtags": ["#gta6", "#gtavi", "#vicecity", "#leonida", "#rockstargames", "#gaming"],
+      "caption_style": "curiosity_opener_plus_question"
+    },
+    "instagram": {
+      "hashtags": ["#gta6", "#gtavi", "#grandtheftauto6", "#vicecity", "#gamingreels", "#rockstar"],
+      "caption_style": "save_worthy_hook_plus_cta"
+    }
+  },
+  "channel_stats": {
+    "channel_avg_views_48h": 1500,
+    "total_evaluated_clips": 0
+  }
+}

@@ -1,0 +1,111 @@
+{
+  "version": "1.0.0",
+  "target_resolution": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "caption_presets": {
+    "gtaclipper_pill": {
+      "source": "V413havai/GTAClipper (backend/src/caption_templates.py)",
+      "font_family": "DejaVu Sans",
+      "preferred_font": "Poppins ExtraBold",
+      "font_scale": 0.048,
+      "uppercase": true,
+      "bold": true,
+      "text_color": "#FFFFFF",
+      "highlight_color": "#111111",
+      "word_box": true,
+      "word_box_color": "#FFC400",
+      "outline_color": "#000000",
+      "outline_width": 4.0,
+      "shadow": 1,
+      "words_per_group": 3,
+      "position_y": 0.74
+    },
+    "cutawan_beast": {
+      "source": "JeremySNR/cutawan (src/shared/captionStyles.ts)",
+      "font_family": "DejaVu Sans",
+      "preferred_font": "Anton",
+      "font_scale": 0.052,
+      "uppercase": true,
+      "bold": true,
+      "text_color": "#FFFFFF",
+      "highlight_color": "#FFD400",
+      "word_box": false,
+      "word_box_color": null,
+      "outline_color": "#000000",
+      "outline_width": 3.2,
+      "shadow": 1,
+      "words_per_group": 3,
+      "position_y": 0.72
+    },
+    "openshorts_karaoke": {
+      "source": "mutonby/openshorts + JeremySNR/cutawan",
+      "font_family": "DejaVu Sans",
+      "preferred_font": "Poppins",
+      "font_scale": 0.046,
+      "uppercase": false,
+      "bold": true,
+      "text_color": "#FFFFFF",
+      "highlight_color": "#4ADE80",
+      "word_box": false,
+      "word_box_color": null,
+      "outline_color": "#000000",
+      "outline_width": 2.6,
+      "shadow": 1,
+      "words_per_group": 4,
+      "position_y": 0.74
+    }
+  },
+  "caption_layout_guardrails": {
+    "source": "JeremySNR/cutawan (src/shared/captionLayout.ts)",
+    "safe_width_ratio": 0.86,
+    "max_lines": 2,
+    "pop_allowance_em": 0.5,
+    "space_width_em": 0.26,
+    "pause_break_sec": 0.35,
+    "glyph_width_em": {
+      "Anton": { "lower": 0.45, "upper": 0.46 },
+      "Poppins": { "lower": 0.58, "upper": 0.65 },
+      "DejaVu Sans": { "lower": 0.60, "upper": 0.68 }
+    }
+  },
+  "framing_params": {
+    "source": "JeremySNR/cutawan (cameraPath.ts) + mutonby/openshorts (reframe_v2.py)",
+    "delivery_min_width": 1080,
+    "analysis_max_width": 640,
+    "face_band": 0.20,
+    "smooth_sec": 0.80,
+    "min_hold_sec": 1.20,
+    "pan_speed": 0.90,
+    "pan_min_sec": 0.50,
+    "pan_max_sec": 1.40,
+    "min_move": 0.04,
+    "split_stack_ratios": {
+      "webcam_top_height_ratio": 0.30,
+      "gameplay_bottom_height_ratio": 0.70
+    }
+  },
+  "retention_editing": {
+    "silence_threshold_sec": 0.30,
+    "silence_noise_db": -34,
+    "hook_banner_duration_sec": 3.0,
+    "hook_banner_position_y": 0.14,
+    "punch_in": {
+      "source": "mutonby/openshorts (punch_in.py)",
+      "max_zoom": 1.06,
+      "rise_seconds": 0.25,
+      "hold_seconds": 1.30,
+      "fall_seconds": 0.55,
+      "min_gap_seconds": 18.0,
+      "beat_prominence": 0.60
+    },
+    "burned_subtitle_guard": {
+      "source": "mutonby/openshorts (burned_subtitles.py)",
+      "highest_band": 0.75,
+      "lowest_band": 0.97,
+      "margin": 0.02
+    }
+  }
+}

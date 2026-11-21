@@ -1,0 +1,81 @@
+name: GTA 6 Autonomous Cloud Clipper
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Stage payloads without publishing (true/false)"
+        required: false
+        default: "true"
+      playlist_items:
+        description: "Max recent items per source"
+        required: false
+        default: "3"
+
+permissions:
+  contents: write
+
+jobs:
+  clip-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CLIP_WORK_DIR: /tmp/clip_work
+      DRY_RUN: ${{ github.event.inputs.dry_run || 'true' }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      OPENSHORTS_API_KEY: ${{ secrets.OPENSHORTS_API_KEY }}
+      UPLOAD_POST_API_KEY: ${{ secrets.UPLOAD_POST_API_KEY }}
+      UPLOAD_POST_PROFILE: ${{ secrets.UPLOAD_POST_PROFILE || 'gta6clips' }}
+      TRYPOST_API_URL: ${{ secrets.TRYPOST_API_URL }}
+      TRYPOST_API_KEY: ${{ secrets.TRYPOST_API_KEY }}
+      POSTIZ_API_URL: ${{ secrets.POSTIZ_API_URL }}
+      POSTIZ_API_KEY: ${{ secrets.POSTIZ_API_KEY }}
+      YOUTUBE_CLIENT_SECRETS_JSON: ${{ secrets.YOUTUBE_CLIENT_SECRETS_JSON }}
+      YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install FFmpeg & fonts inside ephemeral runner
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu-core
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Execute Phases 0-5 Autonomous Pipeline
+        run: |
+          gta6-clipper audit
+          gta6-clipper run-all --playlist-items "${{ github.event.inputs.playlist_items || '3' }}"
+
+      - name: Verify Zero-Storage Cleanup
+        if: always()
+        run: |
+          rm -rf /tmp/clip_work
+          find . -type f \( -name "*.mp4" -o -name "*.mkv" -o -name "*.webm" -o -name "*.wav" \) -delete
+
+      - name: Commit lightweight JSON & Markdown memory updates
+        run: |
+          git config user.name "gta6-auto-clipper-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add memory/*.json .agent/skills/*/SKILL.md
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(memory): sync self-learning playbook and run ledger"
+            git push
+          else
+            echo "No memory updates to commit."
+          fi

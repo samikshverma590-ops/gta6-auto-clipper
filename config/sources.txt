@@ -1,0 +1,15 @@
+# ==============================================================================
+# GTA 6 Zero-Storage Discovery Sources (One URL or yt-dlp search per line)
+# Phase 2 fetches transcripts & metadata ONLY (--write-auto-sub --skip-download).
+# ==============================================================================
+
+# Official Rockstar Games channel (trailers, extended look, official drops)
+https://www.youtube.com/@RockstarGames/videos
+
+# High-velocity GTA 6 news, launch-week breakdowns & stream VODs
+ytsearch8:GTA 6 gameplay insane details NPC realism reactions
+ytsearch8:GTA 6 funny moments stream highlights Leonida Vice City
+ytsearch6:GTA 6 hidden secrets easter eggs Jason Lucia
+
+# Example individual creator VODs / channels (add or replace freely)
+https://www.youtube.com/@IGN/search?query=GTA%206

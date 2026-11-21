@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0.0",
+  "processed_videos": [],
+  "published_clips": [],
+  "stats": {
+    "total_videos_scanned": 0,
+    "total_clips_rendered": 0,
+    "total_clips_published": 0,
+    "last_run_utc": null
+  }
+}

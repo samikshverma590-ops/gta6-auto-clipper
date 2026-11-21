@@ -1,0 +1,86 @@
+{
+  "audited_at": "2026-11-21T17:50:00Z",
+  "cost_tier": "$0 open-source / free-tier only",
+  "clipping_engines": [
+    {
+      "id": "gtaclipper",
+      "repo": "https://github.com/V413havai/GTAClipper",
+      "license": "AGPL-3.0",
+      "mcp_endpoint": "/mcp",
+      "strengths": [
+        "GTA-tuned moment detection (Gemini or free local Ollama)",
+        "Word-by-word yellow pill captions (gtaclipper preset)",
+        "Speaker/face tracking & YouTube/Twitch/Kick ingest"
+      ],
+      "cloud_mode": "Run inside GitHub Actions Linux container; never install on laptop"
+    },
+    {
+      "id": "openshorts",
+      "repo": "https://github.com/mutonby/openshorts",
+      "site": "https://www.openshorts.app/",
+      "mcp_endpoint": "https://mcp.openshorts.app/mcp",
+      "cli_package": "openshorts",
+      "license": "MIT",
+      "strengths": [
+        "faster-whisper + PySceneDetect + MediaPipe/YOLOv8 dual-mode reframing",
+        "Native sendcmd FFmpeg v2 renderer (1080x1920, zero watermarks when self-hosted)",
+        "Smoothstep punch-in & burned-in subtitle guard"
+      ],
+      "cloud_mode": "Self-hosted Docker/CLI in GitHub Actions or hosted MCP with free key"
+    },
+    {
+      "id": "cutawan",
+      "repo": "https://github.com/JeremySNR/cutawan",
+      "site": "https://cutawan.xyz/",
+      "license": "MIT",
+      "strengths": [
+        "AutoFlip-style stationary/pan speaker-lock cameraPath.ts parameters",
+        "Glyph-budget safe captionLayout.ts word grouping",
+        "Beast/Karaoke/Pill ASS styling specs"
+      ],
+      "cloud_mode": "Reference codebase only — parameters extracted into config/presets.json; no desktop install"
+    }
+  ],
+  "publishing_mcps": [
+    {
+      "id": "trypost",
+      "repo": "https://github.com/trypostit/trypost",
+      "site": "https://trypost.it/",
+      "mcp_capable": true,
+      "platforms": ["youtube", "tiktok", "instagram", "x", "linkedin"]
+    },
+    {
+      "id": "postiz",
+      "repo": "https://github.com/gitroomhq/postiz-app",
+      "agent_cli": "https://github.com/gitroomhq/postiz-agent",
+      "license": "AGPL-3.0",
+      "mcp_capable": true,
+      "platforms": ["youtube", "tiktok", "instagram", "facebook", "threads", "bluesky"]
+    },
+    {
+      "id": "postbase",
+      "repo": "https://github.com/postbasehq/mcp",
+      "site": "https://www.postbase.so/",
+      "license": "AGPL-3.0",
+      "mcp_capable": true,
+      "platforms": ["youtube", "tiktok", "x", "linkedin", "bluesky"]
+    },
+    {
+      "id": "upload_post",
+      "repo": "https://github.com/upload-post/upload-post-pip",
+      "site": "https://www.upload-post.com/",
+      "mcp_capable": true,
+      "platforms": ["youtube", "tiktok", "instagram", "facebook", "threads", "bluesky"]
+    },
+    {
+      "id": "youtube_direct_oauth",
+      "provider": "Google YouTube Data API v3",
+      "cost": "$0 (free daily quota)",
+      "platforms": ["youtube"]
+    }
+  ],
+  "user_supplied_slots": {
+    "extra_clipping_or_editing_git_url_1": "",
+    "extra_posting_or_mcp_git_url_2": ""
+  }
+}

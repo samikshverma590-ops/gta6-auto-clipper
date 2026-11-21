@@ -1,0 +1,35 @@
+# Ephemeral media & temp workspace (zero local/repo video storage)
+*.mp4
+*.mkv
+*.webm
+*.mov
+*.avi
+*.flv
+*.mp3
+*.wav
+*.m4a
+*.aac
+*.vtt
+*.srt
+*.ass
+/tmp/
+clip_work/
+output/
+downloads/
+
+# Secrets & local env
+.env
+.env.*
+!.env.example
+client_secret*.json
+youtube_token.json
+cookies*.txt
+
+# Python & caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+.DS_Store
