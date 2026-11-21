@@ -1,11 +1,17 @@
 {
-  "updated_at": "2026-11-21T17:50:00Z",
+  "updated_at": "2026-11-21T18:19:19.166586+00:00",
   "game_context": {
     "title": "Grand Theft Auto VI (GTA 6)",
     "release_date": "2026-11-19",
-    "platforms": ["PS5", "Xbox Series X|S"],
+    "platforms": [
+      "PS5",
+      "Xbox Series X|S"
+    ],
     "setting": "Vice City & State of Leonida",
-    "protagonists": ["Jason Duval", "Lucia Caminos"],
+    "protagonists": [
+      "Jason Duval",
+      "Lucia Caminos"
+    ],
     "launch_metrics": {
       "peak_concurrent_stream_viewers": 7886176,
       "virlo_peak_views_per_hour": 977291,
@@ -60,43 +66,135 @@
     {
       "id": "npc_ai_shock",
       "label": "NPC & Realism Shock",
-      "banner_examples": ["NPC DID WHAT?!", "PS6 GRAPHICS?!", "REALISM IS INSANE"],
+      "banner_examples": [
+        "NPC DID WHAT?!",
+        "PS6 GRAPHICS?!",
+        "REALISM IS INSANE"
+      ],
       "weight": 1.25,
-      "keywords": ["npc", "detail", "realistic", "weather", "water", "physics", "cat", "dog", "snake", "crab", "graphics", "ps5", "leonida", "vice beach"]
+      "keywords": [
+        "npc",
+        "detail",
+        "realistic",
+        "weather",
+        "water",
+        "physics",
+        "cat",
+        "dog",
+        "snake",
+        "crab",
+        "graphics",
+        "ps5",
+        "leonida",
+        "vice beach"
+      ]
     },
     {
       "id": "hidden_secret_easter_egg",
       "label": "Hidden Secrets & Easter Eggs",
-      "banner_examples": ["ROCKSTAR HID THIS", "MISSED THIS DETAIL", "SECRET LOCATION"],
-      "weight": 1.20,
-      "keywords": ["secret", "easter egg", "hidden", "dexter", "mandy", "serial", "mission", "clue", "detail", "location", "map"]
+      "banner_examples": [
+        "ROCKSTAR HID THIS",
+        "MISSED THIS DETAIL",
+        "SECRET LOCATION"
+      ],
+      "weight": 1.2,
+      "keywords": [
+        "secret",
+        "easter egg",
+        "hidden",
+        "dexter",
+        "mandy",
+        "serial",
+        "mission",
+        "clue",
+        "detail",
+        "location",
+        "map"
+      ]
     },
     {
       "id": "streamer_chaos_reaction",
       "label": "Streamer Chaos & Jump Scare",
-      "banner_examples": ["WAIT FOR IT", "HE PANICKED", "NO WAY BRO"],
+      "banner_examples": [
+        "WAIT FOR IT",
+        "HE PANICKED",
+        "NO WAY BRO"
+      ],
       "weight": 1.15,
-      "keywords": ["what", "bro", "no way", "oh my god", "scream", "laugh", "crazy", "insane", "jumped", "arrested", "wasted", "code"]
+      "keywords": [
+        "what",
+        "bro",
+        "no way",
+        "oh my god",
+        "scream",
+        "laugh",
+        "crazy",
+        "insane",
+        "jumped",
+        "arrested",
+        "wasted",
+        "code"
+      ]
     },
     {
       "id": "gameplay_mechanic_discovery",
       "label": "New Mechanics & Features",
-      "banner_examples": ["NEW FEATURE?!", "FINALLY FIXED", "HOW TO DO THIS"],
-      "weight": 1.10,
-      "keywords": ["sprint", "hotwire", "slim jim", "fuel", "gas", "gym", "paint", "phone", "app", "first person", "jason", "lucia", "car", "steal"]
+      "banner_examples": [
+        "NEW FEATURE?!",
+        "FINALLY FIXED",
+        "HOW TO DO THIS"
+      ],
+      "weight": 1.1,
+      "keywords": [
+        "sprint",
+        "hotwire",
+        "slim jim",
+        "fuel",
+        "gas",
+        "gym",
+        "paint",
+        "phone",
+        "app",
+        "first person",
+        "jason",
+        "lucia",
+        "car",
+        "steal"
+      ]
     }
   ],
   "pacing_and_duration": {
-    "cut_interval_target_sec": [2.0, 4.0],
+    "cut_interval_target_sec": [
+      2.0,
+      4.0
+    ],
     "optimal_duration_buckets": {
-      "short_punch": { "range": [15, 28], "weight": 1.20 },
-      "mid_story": { "range": [29, 45], "weight": 1.10 },
-      "deep_breakdown": { "range": [46, 58], "weight": 0.95 }
+      "short_punch": {
+        "range": [
+          15,
+          28
+        ],
+        "weight": 1.2
+      },
+      "mid_story": {
+        "range": [
+          29,
+          45
+        ],
+        "weight": 1.1
+      },
+      "deep_breakdown": {
+        "range": [
+          46,
+          58
+        ],
+        "weight": 0.95
+      }
     },
     "caption_preset_weights": {
       "gtaclipper_pill": 1.25,
-      "cutawan_beast": 1.10,
-      "openshorts_karaoke": 1.00
+      "cutawan_beast": 1.1,
+      "openshorts_karaoke": 1.0
     }
   },
   "scoring_rubric": {
@@ -113,7 +211,13 @@
     "youtube": {
       "max_title_len": 100,
       "title_suffix": " #Shorts",
-      "hashtags": ["#Shorts", "#GTA6", "#GTAVI", "#ViceCity", "#Leonida"],
+      "hashtags": [
+        "#Shorts",
+        "#GTA6",
+        "#GTAVI",
+        "#ViceCity",
+        "#Leonida"
+      ],
       "pinned_question_templates": [
         "Did you notice this detail in Leonida yet? 👇",
         "Rate this GTA 6 moment 1-10 🔥",
@@ -121,11 +225,25 @@
       ]
     },
     "tiktok": {
-      "hashtags": ["#gta6", "#gtavi", "#vicecity", "#leonida", "#rockstargames", "#gaming"],
+      "hashtags": [
+        "#gta6",
+        "#gtavi",
+        "#vicecity",
+        "#leonida",
+        "#rockstargames",
+        "#gaming"
+      ],
       "caption_style": "curiosity_opener_plus_question"
     },
     "instagram": {
-      "hashtags": ["#gta6", "#gtavi", "#grandtheftauto6", "#vicecity", "#gamingreels", "#rockstar"],
+      "hashtags": [
+        "#gta6",
+        "#gtavi",
+        "#grandtheftauto6",
+        "#vicecity",
+        "#gamingreels",
+        "#rockstar"
+      ],
       "caption_style": "save_worthy_hook_plus_cta"
     }
   },
