@@ -10,6 +10,11 @@
       "video_id": "320451500",
       "source_url": "https://www.twitch.tv/caseoh_/clip/CuriousBadEchidnaCoolStoryBro-g66TfyHbfF_r5vxZ",
       "processed_at": "2026-11-21T19:03:06.137296+00:00"
+    },
+    {
+      "video_id": "2842428585",
+      "source_url": "https://www.twitch.tv/theburntpeanut/clip/CuteBlindingSandwichKevinTurtle-StfZX5EDlf9jn5_j",
+      "processed_at": "2026-11-22T04:38:47.426635+00:00"
     }
   ],
   "published_clips": [
@@ -92,12 +97,52 @@
       },
       "metrics_48h": null,
       "evaluated": false
+    },
+    {
+      "clip_id": "2842428585_0_24",
+      "video_id": "2842428585",
+      "source_url": "https://www.twitch.tv/theburntpeanut/clip/CuteBlindingSandwichKevinTurtle-StfZX5EDlf9jn5_j",
+      "engine_used": "gtaclipper_split",
+      "score": 91,
+      "hook_archetype": "streamer_chaos_reaction",
+      "hook_banner": "INSTANTLY BANNED",
+      "caption_preset": "gtaclipper_pill",
+      "duration_sec": 24.93,
+      "scheduled_at": "2026-11-22T04:38:47Z",
+      "provider": "upload_post",
+      "request_id": "776d49c97fe240d1985eaffe07717760",
+      "published_platforms": [
+        "youtube"
+      ],
+      "status": "published_or_queued",
+      "platforms": {
+        "youtube": {
+          "title": "I got BANNED in GTA 6 for doing THIS... #Shorts",
+          "description": "INSTANTLY BANNED — The moment I got banned in GTA 6 for this.\nCredit: theburntpeanut\n\nShould I have been banned for this? Yes or No?\n\n#GTA6 #GTA6Gameplay #StreamerFails #Gaming #Viral #GTA6Clips",
+          "first_comment": "Should I have been banned for this? Yes or No?",
+          "privacyStatus": "public",
+          "categoryId": "20",
+          "publishAt": "2026-11-22T04:38:47Z"
+        },
+        "tiktok": {
+          "caption": "Was it worth the ban? 💀 The GTA 6 mods are NOT playing around. #GTA6 #Gaming #Streamer Should I have been banned for this? Yes or No? #GTA6 #GTA6Gameplay #StreamerFails #Gaming #Viral #GTA6Clips",
+          "post_mode": "MEDIA_UPLOAD",
+          "scheduled_at": "2026-11-22T04:38:47Z"
+        },
+        "instagram": {
+          "caption": "I literally got banned mid-stream for this. 💀 Was it worth the risk? Let me know in the comments! 👇 #GTA6 #GTA6Leaked #GamingMoments #StreamerFails #WorthIt #GamingCommunity\nCredit: theburntpeanut\n\nShould I have been banned for this? Yes or No?\n\n#GTA6 #GTA6Gameplay #StreamerFails #Gaming #Viral #GTA6Clips",
+          "media_type": "REELS",
+          "scheduled_at": "2026-11-22T04:38:47Z"
+        }
+      },
+      "metrics_48h": null,
+      "evaluated": false
     }
   ],
   "stats": {
-    "total_videos_scanned": 2,
-    "total_clips_rendered": 2,
-    "total_clips_published": 2,
-    "last_run_utc": "2026-11-21T22:47:23.766006+00:00"
+    "total_videos_scanned": 3,
+    "total_clips_rendered": 3,
+    "total_clips_published": 3,
+    "last_run_utc": "2026-11-22T04:38:47.426635+00:00"
   }
 }
