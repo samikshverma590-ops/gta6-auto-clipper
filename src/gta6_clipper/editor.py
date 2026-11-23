@@ -1,6 +1,6 @@
-"""Phase 3: Retention editor — OpenCV facecam corner detection, Cutawan camera smoothing
-+ word grouping, GTAClipper yellow-pill ASS captions (Poppins ExtraBold),
-OpenShorts 1.06x punch-in, and 0.30s silence jump-cuts.
+"""Phase 3: Retention editor — Cinema blurred bed + tight OpenCV facecam framing,
+FFmpeg-decoded faster-whisper word timestamps (-0.10s lead), Cutawan word grouping,
+GTAClipper Poppins ExtraBold yellow-pill ASS captions, 1.06x punch-in, and silence jump-cuts.
 """
 
 from __future__ import annotations
@@ -11,6 +11,8 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Sequence
+
+import numpy as np
 
 from .config import AppConfig, load_json
 
@@ -31,21 +33,31 @@ def hex_to_ass_bgr(hex_color: str, alpha: int = 0) -> str:
     return f"&H{alpha:02X}{b.upper()}{g.upper()}{r.upper()}&"
 
 
-def detect_facecam_crop(input_path: Path, sample_count: int = 6) -> str | None:
-    """Detect streamer webcam corner via OpenCV Haar cascade across sampled frames.
+def detect_facecam_crop(input_path: Path, sample_count: int = 8) -> str | None:
+    """Detect tight streamer webcam corner via OpenCV corner-ROI clustering + CLAHE.
 
-    Returns an FFmpeg crop expression like 'iw*0.32:ih*0.36:iw*0.68:0' centered on the
-    corner with consistent face detections, or None if no corner facecam is found.
+    Scans only the 4 outer corner zones (32% width x 50% height) with local CLAHE
+    normalization, keeps only the dominant consistent corner cluster via median,
+    and returns a tight ~16:9 crop avoiding Twitch chat and game HUD noise.
     """
     try:
+        from collections import defaultdict
+        import statistics
         import cv2  # type: ignore
     except Exception:
-        return "iw*0.32:ih*0.36:0:0"
+        return None
 
-    cascade_path = Path(cv2.data.haarcascades) / "haarcascade_frontalface_default.xml"
-    if not cascade_path.is_file():
-        return "iw*0.32:ih*0.36:0:0"
-    clf = cv2.CascadeClassifier(str(cascade_path))
+    if not hasattr(cv2, "CascadeClassifier"):
+        return None
+
+    frontal_xml = Path(cv2.data.haarcascades) / "haarcascade_frontalface_default.xml"
+    alt2_xml = Path(cv2.data.haarcascades) / "haarcascade_frontalface_alt2.xml"
+    profile_xml = Path(cv2.data.haarcascades) / "haarcascade_profileface.xml"
+    if not frontal_xml.is_file():
+        return None
+    frontal_clf = cv2.CascadeClassifier(str(frontal_xml))
+    alt2_clf = cv2.CascadeClassifier(str(alt2_xml)) if alt2_xml.is_file() else frontal_clf
+    profile_clf = cv2.CascadeClassifier(str(profile_xml)) if profile_xml.is_file() else None
 
     cap = cv2.VideoCapture(str(input_path))
     if not cap.isOpened():
@@ -55,7 +67,8 @@ def detect_facecam_crop(input_path: Path, sample_count: int = 6) -> str | None:
         cap.release()
         return None
 
-    hits: list[tuple[float, float]] = []
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    buckets: dict[str, list[tuple[float, float, float, float]]] = defaultdict(list)
     step = max(1, total_frames // (sample_count + 1))
     for i in range(1, sample_count + 1):
         cap.set(cv2.CAP_PROP_POS_FRAMES, min(total_frames - 1, i * step))
@@ -63,25 +76,63 @@ def detect_facecam_crop(input_path: Path, sample_count: int = 6) -> str | None:
         if not ok or frame is None:
             continue
         fh, fw = frame.shape[:2]
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = clf.detectMultiScale(gray, scaleFactor=1.15, minNeighbors=5, minSize=(36, 36))
-        for (x, y, w, h) in faces:
-            cx = (x + w / 2.0) / max(1.0, fw)
-            cy = (y + h / 2.0) / max(1.0, fh)
-            # Streamer webcams live near edges/corners (left/right third or top/bottom half)
-            if cx < 0.36 or cx > 0.64:
-                hits.append((cx, cy))
-                break
+        min_face = max(32, int(fw * 0.04))
+        rois = {
+            "tl": (0, 0, int(fw * 0.32), int(fh * 0.50)),
+            "tr": (int(fw * 0.68), 0, fw, int(fh * 0.50)),
+            "bl": (0, int(fh * 0.50), int(fw * 0.32), fh),
+            "br": (int(fw * 0.68), int(fh * 0.50), fw, fh),
+        }
+        for cname, (rx1, ry1, rx2, ry2) in rois.items():
+            gray = clahe.apply(cv2.cvtColor(frame[ry1:ry2, rx1:rx2], cv2.COLOR_BGR2GRAY))
+            detectors = ((alt2_clf, 5), (frontal_clf, 5))
+            if profile_clf is not None:
+                detectors = (*detectors, (profile_clf, 5))
+            for clf, mn in detectors:
+                faces = clf.detectMultiScale(
+                    gray,
+                    scaleFactor=1.08,
+                    minNeighbors=mn,
+                    minSize=(min_face, min_face),
+                )
+                if len(faces) > 0:
+                    x, y, w, h = max(faces, key=lambda b: int(b[2]) * int(b[3]))
+                    cx = (rx1 + x + w / 2.0) / max(1.0, fw)
+                    cy = (ry1 + y + h / 2.0) / max(1.0, fh)
+                    buckets[cname].append((cx, cy, w / max(1.0, fw), h / max(1.0, fh)))
+                    break
     cap.release()
 
-    if len(hits) < 2:
+    if not buckets:
         return None
 
-    avg_x = sum(p[0] for p in hits) / len(hits)
-    avg_y = sum(p[1] for p in hits) / len(hits)
-    crop_w, crop_h = 0.32, 0.38
-    x0 = max(0.0, min(1.0 - crop_w, avg_x - crop_w / 2.0))
-    y0 = max(0.0, min(1.0 - crop_h, avg_y - crop_h / 2.0))
+    _, pts = max(buckets.items(), key=lambda kv: len(kv[1]))
+    if len(pts) < 2:
+        return None
+
+    med_x = statistics.median(p[0] for p in pts)
+    med_y = statistics.median(p[1] for p in pts)
+    inliers = [
+        p for p in pts if abs(p[0] - med_x) <= 0.12 and abs(p[1] - med_y) <= 0.12
+    ]
+    if len(inliers) < 2:
+        return None
+
+    cx = statistics.median(p[0] for p in inliers)
+    cy = statistics.median(p[1] for p in inliers)
+    fw_rel = statistics.median(p[2] for p in inliers)
+    fh_rel = statistics.median(p[3] for p in inliers)
+
+    crop_w = max(0.20, min(0.26, fw_rel * 3.1))
+    crop_h = max(0.22, min(0.29, fh_rel * 2.4))
+    # Snap flush to left/right edge when webcam sits near side border to skip game sky
+    if cx < 0.13:
+        x0 = 0.0
+    elif cx > 0.87:
+        x0 = 1.0 - crop_w
+    else:
+        x0 = max(0.0, min(1.0 - crop_w, cx - crop_w / 2.0))
+    y0 = max(0.0, min(1.0 - crop_h, cy - crop_h * 0.45))
     return f"iw*{crop_w:.3f}:ih*{crop_h:.3f}:iw*{x0:.3f}:ih*{y0:.3f}"
 
 
@@ -131,7 +182,9 @@ def group_words_for_captions(
     pop_em = float(guardrails.get("pop_allowance_em", 0.5))
     space_em = float(guardrails.get("space_width_em", 0.26))
     pause_break = float(guardrails.get("pause_break_sec", 0.35))
-    line_width_em = max(4.0, (aspect_ratio * safe_width) / max(0.01, font_scale) - pop_em)
+    line_width_em = max(
+        4.0, (aspect_ratio * safe_width) / max(0.01, font_scale) - pop_em
+    )
 
     glyph_map = guardrails.get("glyph_width_em", {})
     pref_font = preset.get("preferred_font", "Poppins").split()[0]
@@ -197,8 +250,9 @@ def build_ass_subtitles(
     preset_name: str,
     presets_cfg: dict,
     out_ass_path: Path,
+    caption_y_ratio: float | None = None,
 ) -> Path:
-    """Generate ASS subtitle file with 3s Hook Banner + word-by-word animated captions."""
+    """Generate ASS subtitle file with top Hook Banner + eye-line word-by-word captions."""
     target = presets_cfg.get("target_resolution", {"width": 1080, "height": 1920})
     w, h = int(target["width"]), int(target["height"])
     preset = presets_cfg.get("caption_presets", {}).get(
@@ -208,9 +262,14 @@ def build_ass_subtitles(
     guardrails = presets_cfg.get("caption_layout_guardrails", {})
 
     font_name = preset.get("font_family", "Poppins ExtraBold")
-    font_size = max(42, int(round(h * float(preset.get("font_scale", 0.048)))))
-    pos_y = int(round(h * float(preset.get("position_y", 0.74))))
-    margin_v = max(80, h - pos_y)
+    font_size = max(48, int(round(h * float(preset.get("font_scale", 0.048)))))
+    y_ratio = (
+        caption_y_ratio
+        if caption_y_ratio is not None
+        else float(preset.get("position_y", 0.66))
+    )
+    pos_y = int(round(h * y_ratio))
+    margin_v = max(120, h - pos_y)
     uppercase = bool(preset.get("uppercase", True))
     word_box = bool(preset.get("word_box", False))
     box_color = preset.get("word_box_color") or "#FFC400"
@@ -220,22 +279,12 @@ def build_ass_subtitles(
     outline_ass = hex_to_ass_bgr(preset.get("outline_color", "#000000"))
     box_ass = hex_to_ass_bgr(box_color)
 
-    outline_w = float(preset.get("outline_width", 3.5))
-    shadow = int(preset.get("shadow", 1))
+    outline_w = float(preset.get("outline_width", 4.5))
+    shadow = int(preset.get("shadow", 2))
 
-    banner_y = int(
-        round(
-            h
-            * float(
-                presets_cfg.get("retention_editing", {}).get(
-                    "hook_banner_position_y", 0.14
-                )
-            )
-        )
-    )
-    banner_dur = float(
-        presets_cfg.get("retention_editing", {}).get("hook_banner_duration_sec", 3.0)
-    )
+    # Top Hook Banner positioned inside top blurred cinema margin (y=75px, clear of faces)
+    banner_y = 75
+    banner_dur = 3.5
 
     header = f"""[Script Info]
 ScriptType: v4.00+
@@ -246,8 +295,8 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,{font_name},{font_size},{primary_ass},{primary_ass},{outline_ass},&H80000000,-1,0,0,0,100,100,0,0,1,{outline_w},{shadow},2,60,60,{margin_v},1
-Style: Banner,{font_name},{int(font_size * 0.88)},&H00111111&,&H00111111&,&H0000C4FF&,&H0000C4FF&,-1,0,0,0,100,100,2,0,3,14,0,8,60,60,{banner_y},1
+Style: Default,{font_name},{font_size},{primary_ass},{primary_ass},{outline_ass},&H90000000,-1,0,0,0,100,100,0,0,1,{outline_w},{shadow},2,60,60,{margin_v},1
+Style: Banner,{font_name},{int(font_size * 0.78)},&H00111111&,&H00111111&,&H0000C4FF&,&H0000C4FF&,-1,0,0,0,100,100,1,0,3,16,0,8,50,50,{banner_y},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -256,18 +305,35 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     if hook_banner.strip():
         safe_banner = hook_banner.strip().upper().replace("{", "").replace("}", "")
         events.append(
-            f"Dialogue: 2,0:00:00.00,{_fmt_ass_time(banner_dur)},Banner,,0,0,0,,{{\\fad(80,150)}}{safe_banner}"
+            f"Dialogue: 2,0:00:00.00,{_fmt_ass_time(banner_dur)},Banner,,0,0,0,,{{\\fad(80,180)}}{safe_banner}"
         )
 
-    groups = group_words_for_captions(words, preset, guardrails, aspect_ratio=w / h)
-    for grp in groups:
+    # Apply 0.10s lead-in so viewers read ahead smoothly without lag
+    lead_words = [
+        WordTiming(
+            word=wt.word,
+            start=max(0.0, round(wt.start - 0.10, 3)),
+            end=max(0.05, round(wt.end - 0.05, 3)),
+        )
+        for wt in words
+    ]
+
+    groups = group_words_for_captions(
+        lead_words, preset, guardrails, aspect_ratio=w / h
+    )
+    for g_idx, grp in enumerate(groups):
+        next_grp_start = (
+            groups[g_idx + 1][0].start if g_idx + 1 < len(groups) else None
+        )
         for active_idx, active_wt in enumerate(grp):
             t0 = active_wt.start
             t1 = (
                 grp[active_idx + 1].start
                 if active_idx + 1 < len(grp)
-                else max(active_wt.end, active_wt.start + 0.12)
+                else max(active_wt.end, active_wt.start + 0.14)
             )
+            if next_grp_start is not None and active_idx + 1 == len(grp):
+                t1 = min(t1, next_grp_start)
             if t1 <= t0:
                 continue
             rendered_tokens: List[str] = []
@@ -279,11 +345,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 if j == active_idx:
                     if word_box:
                         rendered_tokens.append(
-                            f"{{\\c{highlight_ass}\\3c{box_ass}\\bord10\\fscx109\\fscy109}}{tok}{{\\r}}"
+                            f"{{\\c{highlight_ass}\\3c{box_ass}\\bord12\\fscx110\\fscy110}}{tok}{{\\r}}"
                         )
                     else:
                         rendered_tokens.append(
-                            f"{{\\c{highlight_ass}\\fscx109\\fscy109}}{tok}{{\\r}}"
+                            f"{{\\c{highlight_ass}\\fscx110\\fscy110}}{tok}{{\\r}}"
                         )
                 else:
                     rendered_tokens.append(tok)
@@ -292,45 +358,82 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 f"Dialogue: 1,{_fmt_ass_time(t0)},{_fmt_ass_time(t1)},Default,,0,0,0,,{line}"
             )
 
-    # Guardrail (lesson-001): ensure filename has no apostrophes
     safe_path = out_ass_path.with_name(out_ass_path.name.replace("'", ""))
     safe_path.parent.mkdir(parents=True, exist_ok=True)
     safe_path.write_text(header + "\n".join(events) + "\n", encoding="utf-8")
     return safe_path
 
 
+def _decode_audio_16k_mono(media_path: Path) -> np.ndarray:
+    """Decode audio via ffmpeg directly to float32 16kHz mono PCM, bypassing PyAV."""
+    proc = subprocess.run(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-i",
+            str(media_path),
+            "-vn",
+            "-ac",
+            "1",
+            "-ar",
+            "16000",
+            "-f",
+            "f32le",
+            "pipe:1",
+        ],
+        capture_output=True,
+        check=True,
+    )
+    return np.frombuffer(proc.stdout, dtype=np.float32)
+
+
 def extract_word_timings(
-    media_path: Path, fallback_text: str, clip_duration: float
+    media_path: Path,
+    fallback_text: str = "",
+    clip_duration: float = 0.0,
+    allow_fallback: bool = False,
 ) -> List[WordTiming]:
-    """Extract word-level timestamps via faster-whisper, or distribute evenly as fallback."""
+    """Extract accurate word-level timestamps via FFmpeg-decoded faster-whisper.
+
+    Never emits fake spread-out title words unless allow_fallback=True (for unit tests).
+    """
     try:
         from faster_whisper import WhisperModel  # type: ignore
 
-        model = WhisperModel("small", device="cpu", compute_type="int8")
-        segments, _ = model.transcribe(
-            str(media_path),
-            beam_size=5,
-            vad_filter=True,
-            condition_on_previous_text=False,
-            word_timestamps=True,
-        )
-        words: List[WordTiming] = []
-        for seg in segments:
-            for w in getattr(seg, "words", []) or []:
-                txt = (w.word or "").strip()
-                if not txt:
-                    continue
-                if words and not (w.word or "").startswith(" "):
-                    words[-1].word += txt
-                    words[-1].end = float(w.end)
-                else:
-                    words.append(
-                        WordTiming(word=txt, start=float(w.start), end=float(w.end))
-                    )
-        if words:
-            return words
+        audio_np = _decode_audio_16k_mono(media_path)
+        if audio_np.size > 1600:
+            model = WhisperModel("base", device="cpu", compute_type="int8")
+            segments, _ = model.transcribe(
+                audio_np,
+                beam_size=5,
+                vad_filter=True,
+                condition_on_previous_text=False,
+                word_timestamps=True,
+            )
+            words: List[WordTiming] = []
+            for seg in segments:
+                for w in getattr(seg, "words", []) or []:
+                    raw = w.word or ""
+                    txt = raw.strip()
+                    if not txt:
+                        continue
+                    if words and not raw.startswith(" "):
+                        words[-1].word += txt
+                        words[-1].end = float(w.end)
+                    else:
+                        words.append(
+                            WordTiming(
+                                word=txt, start=float(w.start), end=float(w.end)
+                            )
+                        )
+            if words:
+                return words
     except Exception:
         pass
+
+    if not allow_fallback or not fallback_text.strip():
+        return []
 
     tokens = [t for t in re.split(r"\s+", fallback_text.strip()) if t]
     if not tokens:
@@ -379,7 +482,9 @@ def build_silence_trim_segments(
     return kept or [(0.0, total_duration)]
 
 
-def _maybe_trim_silences(input_path: Path, total_duration: float, tmp_dir: Path) -> Path:
+def _maybe_trim_silences(
+    input_path: Path, total_duration: float, tmp_dir: Path
+) -> Path:
     """Trim >0.35s dead air segments when remaining duration stays >= 15.0s."""
     if total_duration < 17.5:
         return input_path
@@ -398,22 +503,31 @@ def _maybe_trim_silences(input_path: Path, total_duration: float, tmp_dir: Path)
         text=True,
         check=False,
     )
-    kept = build_silence_trim_segments(det.stderr, total_duration, min_silence_sec=0.35)
+    kept = build_silence_trim_segments(
+        det.stderr, total_duration, min_silence_sec=0.35
+    )
     kept_dur = sum(e - s for s, e in kept)
     if len(kept) <= 1 or kept_dur < 15.0 or (total_duration - kept_dur) < 0.5:
         return input_path
 
-    # Build trim+concat filtergraph in one fast pass
     v_parts = []
     a_parts = []
     concat_inputs = []
     for idx, (s, e) in enumerate(kept[:12]):
-        v_parts.append(f"[0:v]trim=start={s:.3f}:end={e:.3f},setpts=PTS-STARTPTS[v{idx}];")
-        a_parts.append(f"[0:a]atrim=start={s:.3f}:end={e:.3f},asetpts=PTS-STARTPTS[a{idx}];")
+        v_parts.append(
+            f"[0:v]trim=start={s:.3f}:end={e:.3f},setpts=PTS-STARTPTS[v{idx}];"
+        )
+        a_parts.append(
+            f"[0:a]atrim=start={s:.3f}:end={e:.3f},asetpts=PTS-STARTPTS[a{idx}];"
+        )
         concat_inputs.append(f"[v{idx}][a{idx}]")
 
     trimmed_path = tmp_dir / f"trimmed_{input_path.name}"
-    fc = "".join(v_parts + a_parts) + "".join(concat_inputs) + f"concat=n={len(concat_inputs)}:v=1:a=1[vo][ao]"
+    fc = (
+        "".join(v_parts + a_parts)
+        + "".join(concat_inputs)
+        + f"concat=n={len(concat_inputs)}:v=1:a=1[vo][ao]"
+    )
     res = subprocess.run(
         [
             "ffmpeg",
@@ -457,9 +571,15 @@ def render_vertical_clip(
     preset_name: str,
     split_facecam: bool,
     cfg: AppConfig,
+    words_override: Sequence[WordTiming] | None = None,
 ) -> Path:
-    """Render 1080x1920 vertical clip with OpenCV facecam detection, silence jump-cuts,
-    subtle 1.06x punch-in, and Poppins ExtraBold ASS captions.
+    """Render cinema-quality 1080x1920 vertical Short/Reel.
+
+    - Split-Cam (reaction streams): Blurred darkened cinema backdrop + crisp 16:9 tight
+      facecam box at y=190 + sharp 9:8 wide gameplay stage at y=810 (trims bottom 4%
+      game subtitles) + Top Hook Banner at y=75 + eye-line yellow-pill captions at y=800.
+    - Cinema Action (pure gameplay / challenges): Blurred darkened cinema backdrop + sharp
+      4:5 action stage (1080x1350) with subtle 1.06x punch-in + captions at y=1390.
     """
     presets_cfg = load_json(cfg.config_dir / "presets.json", {})
     ass_path = output_path.with_suffix(".ass")
@@ -502,33 +622,59 @@ def render_vertical_clip(
     else:
         duration = raw_duration
 
-    words = extract_word_timings(working_input, transcript_text, duration)
-    safe_ass = build_ass_subtitles(words, hook_banner, preset_name, presets_cfg, ass_path)
+    words = (
+        list(words_override)
+        if words_override is not None
+        else extract_word_timings(working_input, transcript_text, duration, allow_fallback=False)
+    )
+
+    facecam_crop = detect_facecam_crop(working_input) if split_facecam else None
+    # Split-cam places captions at y=0.49 (just below the top facecam at y=190..798)
+    # so the speaker's face is never occluded; Cinema Action uses lower center y=0.72.
+    caption_y = 0.49 if facecam_crop else 0.72
+    safe_ass = build_ass_subtitles(
+        words,
+        hook_banner,
+        preset_name,
+        presets_cfg,
+        ass_path,
+        caption_y_ratio=caption_y,
+    )
     ass_escaped = _escape_ffmpeg_path(safe_ass)
 
     fonts_dir = cfg.repo_root / "assets" / "fonts"
     fonts_arg = (
-        f":fontsdir='{_escape_ffmpeg_path(fonts_dir)}'"
-        if fonts_dir.is_dir()
-        else ""
+        f":fontsdir='{_escape_ffmpeg_path(fonts_dir)}'" if fonts_dir.is_dir() else ""
     )
 
-    facecam_crop = detect_facecam_crop(working_input) if split_facecam else None
-    # Subtle 1.06x punch-in breath every ~18s (OpenShorts punch_in.py envelope)
-    scale_zoom_w = "trunc(1080*(1+0.06*max(0,sin(PI*t/18))*gt(sin(PI*t/18),0.85))/2)*2"
+    scale_zoom_w = (
+        "trunc(1080*(1+0.06*max(0,sin(PI*t/18))*gt(sin(PI*t/18),0.85))/2)*2"
+    )
 
     if facecam_crop:
+        # Cinema blurred backdrop + sharp tight 16:9 facecam (1080x608 at y=190) +
+        # sharp wide 9:8 gameplay stage (1080x960 at y=810, trimming bottom 11% burned-in subs)
         filter_complex = (
-            "[0:v]split=2[cam][game];"
-            f"[cam]crop={facecam_crop},scale=1080:576:force_original_aspect_ratio=increase,crop=1080:576,setsar=1[top];"
-            "[game]scale=1080:1344:force_original_aspect_ratio=increase,crop=1080:1344,setsar=1[bot];"
-            f"[top][bot]vstack=inputs=2,ass='{ass_escaped}'{fonts_arg}[v]"
+            "[0:v]split=3[bgsrc][cam][game];"
+            "[bgsrc]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,"
+            "boxblur=7:2,scale=1080:1920:flags=bilinear,eq=brightness=-0.16:saturation=1.15,setsar=1[bg];"
+            f"[cam]crop={facecam_crop},scale=1080:608:force_original_aspect_ratio=increase,"
+            "crop=1080:608,unsharp=5:5:0.6:3:3:0.3,setsar=1[top];"
+            "[game]crop=iw:ih*0.89:0:0,crop=min(iw\\,ih*1.125):ih:(iw-min(iw\\,ih*1.125))/2:0,"
+            "scale=1080:960,unsharp=5:5:0.6:3:3:0.3,setsar=1[bot];"
+            "[bg][top]overlay=0:190[bg1];"
+            "[bg1][bot]overlay=0:810,"
+            f"ass='{ass_escaped}'{fonts_arg}[v]"
         )
     else:
-        # Pure gameplay / full-frame action crop with subtle 1.06x dynamic zoom
+        # Full Cinema Action layout: blurred cinema backdrop + sharp 4:5 gameplay stage (bottom 11% trimmed)
         filter_complex = (
-            "[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,"
-            f"scale=w='{scale_zoom_w}':h=-2:eval=frame,crop=1080:1920,setsar=1,"
+            "[0:v]split=2[bgsrc][fgsrc];"
+            "[bgsrc]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,"
+            "boxblur=7:2,scale=1080:1920:flags=bilinear,eq=brightness=-0.16:saturation=1.15,setsar=1[bg];"
+            "[fgsrc]crop=iw:ih*0.89:0:0,scale=1080:1350:force_original_aspect_ratio=increase,crop=1080:1350,"
+            f"scale=w='{scale_zoom_w}':h=-2:eval=frame,crop=1080:1350,unsharp=5:5:0.6:3:3:0.3,setsar=1[fg];"
+            "[bg][fg]overlay=0:260,"
             f"ass='{ass_escaped}'{fonts_arg}[v]"
         )
 
@@ -548,7 +694,7 @@ def render_vertical_clip(
         "-preset",
         "veryfast",
         "-crf",
-        "21",
+        "20",
         "-pix_fmt",
         "yuv420p",
         "-r",

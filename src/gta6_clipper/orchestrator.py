@@ -1,4 +1,6 @@
-"""Phase 3: Hybrid clip orchestrator — routes between GTAClipper, OpenShorts, and FFmpeg."""
+"""Phase 3: Hybrid clip orchestrator — routes between GTAClipper, OpenShorts, and FFmpeg
+with pre-render Whisper audio safety & intelligibility verification.
+"""
 
 from __future__ import annotations
 
@@ -11,10 +13,10 @@ from typing import List
 
 import httpx
 
-from .config import AppConfig, load_json, save_json
-from .editor import render_vertical_clip
+from .config import AppConfig, ensure_cookies_file, load_json, save_json
+from .editor import extract_word_timings, render_vertical_clip
 from .quality_gate import validate_clip
-from .scorer import ScoredClip
+from .scorer import ScoredClip, contains_unsafe_language
 
 
 @dataclass
@@ -51,7 +53,9 @@ def choose_engine(clip: ScoredClip, cfg: AppConfig) -> str:
     return "openshorts_local_ffmpeg"
 
 
-def download_slice(clip: ScoredClip, out_path: Path) -> Path:
+def download_slice(
+    clip: ScoredClip, out_path: Path, cookies_file: Path | None = None
+) -> Path:
     """Download ONLY the winning timestamp slice (or pre-cut Twitch clip) via yt-dlp."""
     out_path.parent.mkdir(parents=True, exist_ok=True)
     if "twitch.tv/" in clip.video_url and "/clip/" in clip.video_url:
@@ -69,10 +73,12 @@ def download_slice(clip: ScoredClip, out_path: Path) -> Path:
 
     section = f"*{clip.start:.2f}-{clip.end:.2f}"
     js_flags = ["--js-runtimes", "node"] if shutil.which("node") else []
+    cookie_flags = ["--cookies", str(cookies_file)] if cookies_file else []
     base_cmd = [
         "yt-dlp",
         "-4",
         *js_flags,
+        *cookie_flags,
         "--download-sections",
         section,
         "-f",
@@ -83,11 +89,15 @@ def download_slice(clip: ScoredClip, out_path: Path) -> Path:
         "-o",
         str(out_path),
     ]
-    attempts = [
-        [*base_cmd, "--extractor-args", "youtube:player_client=visionos", clip.video_url],
-        [*base_cmd, "--force-keyframes-at-cuts", clip.video_url],
-        [*base_cmd, "--extractor-args", "youtube:player_client=android_vr,tv", clip.video_url],
-    ]
+    attempts = (
+        [[*base_cmd, "--force-keyframes-at-cuts", clip.video_url]]
+        if cookies_file
+        else [
+            [*base_cmd, "--extractor-args", "youtube:player_client=visionos", clip.video_url],
+            [*base_cmd, "--force-keyframes-at-cuts", clip.video_url],
+            [*base_cmd, "--extractor-args", "youtube:player_client=android_vr,tv", clip.video_url],
+        ]
+    )
     last_err: subprocess.CalledProcessError | None = None
     for cmd in attempts:
         try:
@@ -142,11 +152,12 @@ def _try_openshorts_mcp(clip: ScoredClip, cfg: AppConfig) -> bool:
 def process_scored_clips(
     clips: List[ScoredClip], cfg: AppConfig, max_clips: int = 3
 ) -> List[RenderedClip]:
-    """Download slice-only media into /tmp/clip_work/, render 9:16, and pass quality gate."""
+    """Download slice-only media into /tmp/clip_work/, transcribe & verify safety, render 9:16."""
     raw_dir = cfg.work_dir / "raw"
     out_dir = cfg.work_dir / "rendered"
     raw_dir.mkdir(parents=True, exist_ok=True)
     out_dir.mkdir(parents=True, exist_ok=True)
+    cookies_file = ensure_cookies_file(cfg)
 
     rendered: List[RenderedClip] = []
     seen_videos: set[str] = set()
@@ -169,12 +180,34 @@ def process_scored_clips(
 
         engine = choose_engine(clip, cfg)
         try:
-            download_slice(clip, raw_file)
+            download_slice(clip, raw_file, cookies_file=cookies_file)
         except subprocess.CalledProcessError as exc:
             _log_recovery(cfg, "yt-dlp-slice", exc.stderr or str(exc), "skip_clip")
             continue
         except Exception as exc:
             _log_recovery(cfg, "yt-dlp-slice", str(exc), "skip_clip")
+            continue
+
+        # Transcribe real spoken audio and reject unsafe profanity or unintelligible clips
+        spoken_words = extract_word_timings(
+            raw_file, clip.text, clip.duration, allow_fallback=False
+        )
+        spoken_text = " ".join(w.word for w in spoken_words)
+        if contains_unsafe_language(spoken_text):
+            _log_recovery(
+                cfg,
+                "safety-gate",
+                f"Rejected unsafe profanity in spoken audio for {clip.video_id}",
+                "skip_clip",
+            )
+            continue
+        if len(spoken_words) < 5:
+            _log_recovery(
+                cfg,
+                "clarity-gate",
+                f"Too few intelligible spoken words ({len(spoken_words)}) in {clip.video_id}",
+                "skip_clip",
+            )
             continue
 
         split_cam = engine == "gtaclipper_split"
@@ -196,6 +229,7 @@ def process_scored_clips(
                 preset_name=clip.caption_preset,
                 split_facecam=split_cam,
                 cfg=cfg,
+                words_override=spoken_words,
             )
             report = validate_clip(out_file)
             if not report.passed:
@@ -214,6 +248,7 @@ def process_scored_clips(
                     preset_name="gtaclipper_pill",
                     split_facecam=False,
                     cfg=cfg,
+                    words_override=spoken_words,
                 )
                 out_file = fallback_out
                 engine = "ffmpeg_safe_center_fallback"

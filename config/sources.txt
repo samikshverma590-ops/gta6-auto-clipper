@@ -1,24 +1,24 @@
 # ==============================================================================
-# GTA 6 Viral Creators & Launch-Week Leaderboard Sources
-# Twitch 7-day top clips work at 1080p60 with zero cookies/bot-walls.
-# YouTube channels/searches also supported (best with YOUTUBE_COOKIES_TXT secret).
+# GTA 6 Priority Viral YouTubers & Clean Streamer Sources
 # ==============================================================================
 
-# Top Launch-Week GTA 6 Twitch Streamers (Top 7-Day Clips)
-https://www.twitch.tv/kaicenat/clips?filter=clips&range=7d
-https://www.twitch.tv/xqc/clips?filter=clips&range=7d
+# Priority Creators Requested (YouTube — requires YOUTUBE_COOKIES_TXT in cloud)
+https://www.youtube.com/@TechnoGamerzOfficial/videos
+https://www.youtube.com/@CarryisLive/videos
+https://www.youtube.com/@IShowSpeed/streams
+https://www.youtube.com/@IShowSpeed/videos
+https://www.youtube.com/@MrBeastGaming/videos
+
+# Top Clean GTA 6 Creators & Official Channels
+https://www.youtube.com/@TypicalGamer/videos
+https://www.youtube.com/@LazarBeam/videos
+https://www.youtube.com/@theRadBrad/videos
+https://www.youtube.com/@RockstarGames/videos
+ytsearch2:Techno Gamerz GTA 6 best moments
+ytsearch2:MrBeast Gaming GTA 6
+
+# Clean Twitch 7-Day GTA 6 Clips (Zero cookies required; strict profanity gate applied)
 https://www.twitch.tv/caseoh_/clips?filter=clips&range=7d
-https://www.twitch.tv/theburntpeanut/clips?filter=clips&range=7d
-https://www.twitch.tv/ramee/clips?filter=clips&range=7d
-https://www.twitch.tv/lordkebun/clips?filter=clips&range=7d
-https://www.twitch.tv/clix/clips?filter=clips&range=7d
-https://www.twitch.tv/jasontheween/clips?filter=clips&range=7d
-https://www.twitch.tv/lacy/clips?filter=clips&range=7d
+https://www.twitch.tv/kaicenat/clips?filter=clips&range=7d
 https://www.twitch.tv/summit1g/clips?filter=clips&range=7d
 https://www.twitch.tv/ray__c/clips?filter=clips&range=7d
-
-# Top YouTube GTA 6 Creators & Viral Searches
-ytsearch2:IShowSpeed GTA 6 funniest moment
-ytsearch2:GTA 6 insane detail NPC secret Vice City
-https://www.youtube.com/@RockstarGames/videos
-https://www.youtube.com/@IGN/videos

@@ -307,6 +307,22 @@ def test_learner_boosts_winners_and_logs_flops(tmp_path: Path):
     assert len(lessons["flop_postmortems"]) == 1
 
 
+def test_safety_profanity_filter_and_cookies(tmp_path: Path):
+    from gta6_clipper.config import ensure_cookies_file
+    from gta6_clipper.scorer import contains_unsafe_language
+
+    assert contains_unsafe_language("Always gotta fuckin push it") is True
+    assert contains_unsafe_language("XQC gets called a f****** p****") is True
+    assert contains_unsafe_language("I got banned in GTA 6") is True
+    assert contains_unsafe_language("MrBeast gives away $1,000,000 car in Vice City!") is False
+
+    cfg = _isolated_cfg(tmp_path)
+    work = tmp_path / "work"
+    cfg = AppConfig(**{**cfg.__dict__, "work_dir": work, "youtube_cookies_txt": "# Netscape HTTP Cookie File\n"})
+    cp = ensure_cookies_file(cfg)
+    assert cp is not None and cp.is_file()
+
+
 @pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not installed")
 def test_ffmpeg_render_and_quality_gate(tmp_path: Path):
     cfg = _isolated_cfg(tmp_path)
@@ -337,14 +353,24 @@ def test_ffmpeg_render_and_quality_gate(tmp_path: Path):
         check=True,
         capture_output=True,
     )
+    sample_words = [
+        WordTiming("WHAT", 0.2, 0.7),
+        WordTiming("A", 0.7, 1.0),
+        WordTiming("CRAZY", 1.0, 1.6),
+        WordTiming("DETAIL", 1.6, 2.3),
+        WordTiming("IN", 2.3, 2.7),
+        WordTiming("VICE", 2.7, 3.2),
+        WordTiming("CITY!", 3.2, 4.0),
+    ]
     render_vertical_clip(
         input_path=src_mp4,
         output_path=out_mp4,
         hook_banner="NPC DID WHAT?!",
-        transcript_text="What a crazy GTA 6 detail in Vice City Leonida!",
+        transcript_text="What a crazy detail in Vice City!",
         preset_name="gtaclipper_pill",
         split_facecam=True,
         cfg=cfg,
+        words_override=sample_words,
     )
     report = validate_clip(out_mp4)
     assert report.passed, report.errors
@@ -360,6 +386,7 @@ def test_ffmpeg_render_and_quality_gate(tmp_path: Path):
         preset_name="cutawan_beast",
         split_facecam=False,
         cfg=cfg,
+        words_override=sample_words,
     )
     report2 = validate_clip(out_action)
     assert report2.passed, report2.errors

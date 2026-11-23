@@ -36,6 +36,7 @@ jobs:
       POSTIZ_API_KEY: ${{ secrets.POSTIZ_API_KEY }}
       YOUTUBE_CLIENT_SECRETS_JSON: ${{ secrets.YOUTUBE_CLIENT_SECRETS_JSON }}
       YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+      YOUTUBE_COOKIES_TXT: ${{ secrets.YOUTUBE_COOKIES_TXT }}
 
     steps:
       - name: Checkout repository

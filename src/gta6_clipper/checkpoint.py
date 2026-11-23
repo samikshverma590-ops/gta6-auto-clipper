@@ -80,6 +80,13 @@ def run_phase0_audit(cfg: AppConfig) -> dict:
             notes="Optional $0 self-hosted TryPost/Postiz instance or Upload-Post free tier for TikTok + IG + YouTube.",
         ),
         CheckpointItem(
+            name="YouTube Cookies for Cloud Slice Downloads (Free)",
+            category="Discovery & Clipping",
+            configured=bool(cfg.youtube_cookies_txt),
+            setup_url="https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies",
+            notes="Export cookies.txt from a secondary YouTube account and save as GitHub Secret YOUTUBE_COOKIES_TXT so TechnoGamerz/CarryMinati/MrBeast/IShowSpeed slices download at 1080p without 403.",
+        ),
+        CheckpointItem(
             name="TikTok / Instagram Direct Session (Optional)",
             category="Publishing",
             configured=has_direct_tiktok_ig,

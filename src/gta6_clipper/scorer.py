@@ -54,6 +54,27 @@ _SPOILER_OR_POLICY_FLAGS = (
     "final mission",
 )
 
+_UNSAFE_PROFANITY_RE = re.compile(
+    r"(?<![\w*])("
+    r"fuck\w*|shit\w*|bitch\w*|pussy\w*|"
+    r"f\*{2,}\w*|p\*{2,}\w*|b\*{2,}\w*|s\*{2,}\w*|c\*{2,}\w*|"
+    r"nigg\w*|slur|whore\w*|slut\w*|cunt\w*|dick\w*|cock\w*|"
+    r"asshole\w*|motherfuck\w*|porn\w*|nsfw|kill yourself|kys|"
+    r"got banned|banned in gta"
+    r")(?![\w*])",
+    re.IGNORECASE,
+)
+
+_PRIORITY_CREATORS = (
+    "technogamerz",
+    "techno gamerz",
+    "carryminati",
+    "carryislive",
+    "ishowspeed",
+    "mrbeast",
+    "mrbeastgaming",
+)
+
 _HIGH_INTENSITY_WORDS = {
     "what",
     "insane",
@@ -82,9 +103,18 @@ _HIGH_INTENSITY_WORDS = {
 }
 
 
+def contains_unsafe_language(text: str) -> bool:
+    """Detect explicit profanity, slurs, or YouTube policy-risk phrases."""
+    return bool(_UNSAFE_PROFANITY_RE.search(text or ""))
+
+
 def _policy_safe(seg: CandidateSegment) -> bool:
     combined = f"{seg.video_title} {seg.text}".lower()
-    return not any(flag in combined for flag in _SPOILER_OR_POLICY_FLAGS)
+    if any(flag in combined for flag in _SPOILER_OR_POLICY_FLAGS):
+        return False
+    if contains_unsafe_language(combined):
+        return False
+    return True
 
 
 def _pick_hook_archetype(text_lower: str, playbook: dict) -> tuple[str, str, float]:
@@ -204,7 +234,7 @@ def _score_with_gemini(
         "Score 0-100 using these calibrated anchors:\n"
         "  - 85-95: Strong standalone chaos, hilarious streamer reaction, shocking GTA 6 secret/NPC detail, or immediate curiosity hook (high-view Twitch GTA 6 highlights with strong titles belong here).\n"
         "  - 65-84: Good moment but slow build-up, generic title, or needs prior context.\n"
-        "  - <65: Boring filler, menu/loading talk, or slow intro ('hey guys subscribe').\n"
+        "  - <65: Boring filler, menu/loading talk, slow intro, OR contains heavy profanity/slurs/NSFW.\n"
         "Sub-scores:\n"
         "- hook_impact (0-35): immediate action, shock, or bold claim in first 3s.\n"
         "- escalation_arc (0-25): rising tension, comedy, or payoff.\n"
@@ -215,7 +245,7 @@ def _score_with_gemini(
         "hook_banner (3 uppercase words max), title_idea (<=80 chars), youtube_title (<=95 chars ending with #Shorts), "
         "tiktok_caption (<=150 chars punchy hook), instagram_caption (<=220 chars), "
         "hashtags (array of 6 high-reach tags starting with #), pinned_question (1 short comment-bait question), "
-        "policy_safe (bool; false ONLY if it is an unedited full cutscene or ending spoiler).\n"
+        "policy_safe (bool; false if unedited cutscene, ending spoiler, or contains profanity/slurs/NSFW).\n"
         f"Playbook archetypes: {[a['id'] for a in playbook.get('hook_archetypes', [])]}\n"
         f"Creator/Channel: {seg.channel} | Clip Views: {seg.view_count:,}\n"
         f"Video title: {seg.video_title}\n"
@@ -312,10 +342,15 @@ def score_and_filter_candidates(
             continue
         pre = score_heuristic(seg, playbook)
         is_twitch = "twitch.tv/" in seg.video_url and "/clip/" in seg.video_url
-        twitch_boost = 14 if is_twitch else 0
+        has_yt_cookies = bool(cfg.youtube_cookies_txt)
+        is_priority_creator = any(
+            p in f"{seg.channel} {seg.video_title}".lower() for p in _PRIORITY_CREATORS
+        )
+        creator_boost = 10 if is_priority_creator else 0
+        twitch_boost = 0 if has_yt_cookies else (12 if is_twitch else 0)
         view_bonus = 10 if seg.view_count >= 200_000 else (6 if seg.view_count >= 30_000 else (3 if seg.view_count >= 10_000 else 0))
         grouped_raw.setdefault(seg.video_id, []).append(
-            (pre.score + int(seg.replay_heat * 10) + view_bonus + twitch_boost, seg)
+            (pre.score + int(seg.replay_heat * 10) + view_bonus + creator_boost + twitch_boost, seg)
         )
 
     # Round-robin across videos (1st best window of each video first, then 2nd best)

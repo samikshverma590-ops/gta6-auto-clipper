@@ -9,7 +9,7 @@ import subprocess
 from dataclasses import dataclass, asdict
 from typing import Iterable, List
 
-from .config import AppConfig, load_json, load_sources
+from .config import AppConfig, ensure_cookies_file, load_json, load_sources
 
 
 @dataclass
@@ -170,11 +170,14 @@ def fetch_subtitles_only(
     seen_ids = _processed_video_ids(cfg)
     candidates: List[CandidateSegment] = []
     js_flags = ["--js-runtimes", "node"] if shutil.which("node") else []
+    cookies_file = ensure_cookies_file(cfg)
+    cookie_flags = ["--cookies", str(cookies_file)] if cookies_file else []
 
     for source in target_sources:
         base_args = [
             "yt-dlp",
             *js_flags,
+            *cookie_flags,
             "--skip-download",
             "--write-auto-sub",
             "--write-sub",

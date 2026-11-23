@@ -131,6 +131,9 @@ def _publish_via_upload_post(
     }
 
     if "youtube" in connected_platforms:
+        yt_tags_list = [t.lstrip("#") for t in (clip.hashtags or ["GTA6", "GTAVI", "ViceCity", "Shorts"])]
+        if clip.channel and clip.channel not in yt_tags_list:
+            yt_tags_list.append(clip.channel)
         data.update(
             {
                 "youtube_title": payloads["youtube"]["title"],
@@ -138,6 +141,9 @@ def _publish_via_upload_post(
                 "youtube_first_comment": payloads["youtube"]["first_comment"],
                 "privacyStatus": payloads["youtube"]["privacyStatus"],
                 "categoryId": payloads["youtube"]["categoryId"],
+                "tags[]": yt_tags_list[:10],
+                "embeddable": "true",
+                "publicStatsViewable": "true",
             }
         )
     if "tiktok" in connected_platforms:

@@ -6,18 +6,18 @@ description: Apply retention engineering presets extracted from GTAClipper, Open
 # Retention Editor (Phase 3)
 
 ## Extracted Best-in-Class Presets (`config/presets.json`)
-1. **Caption Presets (ASS / libass burn-in):**
-   - `gtaclipper_pill` (Default for GTA 6): `Poppins-ExtraBold` / `DejaVu Sans Bold` fallback, uppercase, `#FFFFFF` base, `#111111` active word over `#FFC400` yellow pill (`BorderStyle=3`), `#000000` 4px outline, max 3 words/line, `position_y=0.74`.
-   - `cutawan_beast`: `Anton`, `fontScale=0.052`, uppercase, `#FFFFFF` base, `#FFD400` active highlight, `outlineWidth=3.2`, `position_y=0.72`, `wordsPerGroup=3`.
-   - `openshorts_karaoke`: `Poppins`, `fontScale=0.046`, `#FFFFFF` base, `#4ADE80` active highlight, `position_y=0.74`, `wordsPerGroup=4`.
-2. **Word Grouping Guardrails (from Cutawan `captionLayout.ts`):**
-   - Respect `POP_ALLOWANCE_EM = 0.5` and glyph width budgets (`Anton: 0.46em`, `Poppins: 0.65em`) so active-word pop never overflows the 9:16 safe width or wraps to a 3rd line.
-   - Break groups on pauses > 0.35s, sentence boundaries, or word cap.
-   - **Important FFmpeg Filter Rule (from OpenShorts `subtitles.py`):** Never put apostrophes inside ASS file paths passed to `ass='...'`; always use neutral filenames (`subs_clip_01.ass`).
-3. **Retention Polish:**
-   - **Silence Jump-Cuts:** Trim dead air gaps > `0.30s` using FFmpeg `silencedetect` / `faster-whisper` word timestamps.
-   - **Reaction Punch-Ins:** Apply OpenShorts `punch_in.py` smoothstep curve at `MAX_ZOOM = 1.06`, `RISE = 0.25s`, `HOLD = 1.30s`, `FALL = 0.55s`, `MIN_GAP = 18.0s` (never twitch-zoom > 3/min).
-   - **Burned-In Subtitle Guard (from OpenShorts `burned_subtitles.py`):** If source has pre-burned bottom captions in `0.75..0.97` height band, crop above band before rendering clean vertical captions.
-   - **3-Word Hook Banner:** Top safe zone (`y = 14%` of 1920px = ~268px), high-contrast pill/box visible `0.0s–3.0s`.
+1. **9:16 Cinema Layout & Smart Framing:**
+   - **Blurred Cinema Backdrop:** `1080x1920` dark gaussian-blurred (`gblur=sigma=28`, dimmed) source canvas eliminates black bars and keeps visual energy high.
+   - **Split Facecam Mode:** Tight OpenCV frontal + profile facecam detector locates the creator's webcam corner (avoiding chat/UI bleed), renders a sharp `1080x608` top facecam stage at `y=190`, and places a wide `9:8` `1080x960` gameplay stage at `y=810` (with bottom 5% source subtitle bar cropped out).
+   - **Pure Action Mode:** `1080x1350` (`4:5`) sharp centered action stage layered cleanly over the blurred cinema backdrop.
+   - **3-Word Hook Banner:** Top safe zone (`y=75`), high-contrast dark pill with gold accent border and uppercase text visible `0.0s–3.0s`.
+2. **Speech-Synced Caption Pipeline (Zero PyAV Failure):**
+   - Decode audio via `ffmpeg -f f32le -ac 1 -ar 16000 pipe:1` -> `np.ndarray` (`float32`) directly into `faster-whisper` (`WhisperModel("base")`), bypassing `av.open(..., metadata_errors=...)` incompatibilities.
+   - Apply `-0.10s` caption lead-in so word highlights pop slightly ahead of speech onset; forbid fake title-spread fallback in production (`allow_fallback=False`).
+   - Presets (`gtaclipper_pill`, `cutawan_beast`, `openshorts_karaoke`): `Anton` / `Poppins-ExtraBold` / `DejaVu Sans Bold` fallback, uppercase, `#FFFFFF` base, `#FFC400`/`#FFD400`/`#4ADE80` active highlight, max 2–4 words/group (`POP_ALLOWANCE_EM = 0.5`).
+   - **Important FFmpeg Filter Rule:** Never put apostrophes inside ASS file paths passed to `ass='...'`; always use neutral filenames (`subs_clip_01.ass`).
+3. **Retention Polish & Safety/Clarity Gates:**
+   - **Silence Jump-Cuts & Punch-Ins:** Trim dead air gaps > `0.30s`; smoothstep reaction punch-ins capped at `MAX_ZOOM = 1.06`, `MIN_GAP = 18.0s`.
+   - **Pre-Render Safety & Clarity Gate:** Transcribe before rendering; reject any clip containing profanity/slurs/NSFW language (`contains_unsafe_language`) or `< 5` intelligible spoken words (`clarity-gate`).
 4. **Automated Quality Gate (`src/gta6_clipper/quality_gate.py`):**
    - `ffprobe` must verify `1080x1920`, `15.0 <= duration <= 58.0`, audio stream present, `|video_dur - audio_dur| < 0.35s`, and zero watermarks before publishing.

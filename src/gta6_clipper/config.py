@@ -38,6 +38,7 @@ class AppConfig:
     upload_post_profile: str
     youtube_client_secrets_json: str
     youtube_refresh_token: str
+    youtube_cookies_txt: str
     tiktok_session_id: str
     ig_access_token: str
     ig_user_id: str
@@ -61,7 +62,6 @@ class AppConfig:
 def load_config(repo_root: Path | None = None) -> AppConfig:
     root = find_repo_root(repo_root)
     work_dir = Path(os.environ.get("CLIP_WORK_DIR", "/tmp/clip_work")).resolve()
-    # Guardrail: never allow CLIP_WORK_DIR inside the git repo itself.
     if root in work_dir.parents or work_dir == root:
         work_dir = Path("/tmp/clip_work").resolve()
 
@@ -90,6 +90,7 @@ def load_config(repo_root: Path | None = None) -> AppConfig:
             "YOUTUBE_CLIENT_SECRETS_JSON", ""
         ).strip(),
         youtube_refresh_token=os.environ.get("YOUTUBE_REFRESH_TOKEN", "").strip(),
+        youtube_cookies_txt=os.environ.get("YOUTUBE_COOKIES_TXT", "").strip(),
         tiktok_session_id=os.environ.get("TIKTOK_SESSION_ID", "").strip(),
         ig_access_token=os.environ.get("IG_ACCESS_TOKEN", "").strip(),
         ig_user_id=os.environ.get("IG_USER_ID", "").strip(),
@@ -98,6 +99,16 @@ def load_config(repo_root: Path | None = None) -> AppConfig:
         min_viral_score=int(os.environ.get("MIN_VIRAL_SCORE", "85")),
         stagger_hours=float(os.environ.get("STAGGER_HOURS", "3.5")),
     )
+
+
+def ensure_cookies_file(cfg: AppConfig) -> Path | None:
+    """Write YOUTUBE_COOKIES_TXT into ephemeral /tmp/clip_work/yt_cookies.txt if provided."""
+    if not cfg.youtube_cookies_txt:
+        return None
+    cfg.work_dir.mkdir(parents=True, exist_ok=True)
+    cookies_path = cfg.work_dir / "yt_cookies.txt"
+    cookies_path.write_text(cfg.youtube_cookies_txt, encoding="utf-8")
+    return cookies_path
 
 
 def load_json(path: Path, default: Any = None) -> Any:
