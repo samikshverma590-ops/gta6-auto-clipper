@@ -94,7 +94,6 @@ def download_slice(
         if cookies_file
         else [
             [*base_cmd, "--extractor-args", "youtube:player_client=visionos", clip.video_url],
-            [*base_cmd, "--force-keyframes-at-cuts", clip.video_url],
             [*base_cmd, "--extractor-args", "youtube:player_client=android_vr,tv", clip.video_url],
         ]
     )
@@ -171,9 +170,14 @@ def process_scored_clips(
             backups.append(c)
     ordered = primary + backups
 
+    yt_403_streak = 0
+    yt_circuit_open = False
     for idx, clip in enumerate(ordered, start=1):
         if len(rendered) >= max_clips:
             break
+        is_youtube = "youtube.com" in clip.video_url or "youtu.be" in clip.video_url
+        if yt_circuit_open and is_youtube:
+            continue
         clip_id = f"{clip.video_id}_{int(clip.start)}_{int(clip.end)}"
         raw_file = raw_dir / f"slice_{idx:02d}_{clip.video_id}.mp4"
         out_file = out_dir / f"clip_{idx:02d}_{clip.video_id}.mp4"
@@ -181,8 +185,16 @@ def process_scored_clips(
         engine = choose_engine(clip, cfg)
         try:
             download_slice(clip, raw_file, cookies_file=cookies_file)
+            if is_youtube:
+                yt_403_streak = 0
         except subprocess.CalledProcessError as exc:
-            _log_recovery(cfg, "yt-dlp-slice", exc.stderr or str(exc), "skip_clip")
+            err_text = exc.stderr or str(exc)
+            _log_recovery(cfg, "yt-dlp-slice", err_text, "skip_clip")
+            if is_youtube and ("403" in err_text or "sign in" in err_text.lower()):
+                yt_403_streak += 1
+                if not cookies_file and yt_403_streak >= 2:
+                    yt_circuit_open = True
+                    print("[orchestrator] YouTube 403 circuit open (missing YOUTUBE_COOKIES_TXT); skipping remaining YouTube URLs.")
             continue
         except Exception as exc:
             _log_recovery(cfg, "yt-dlp-slice", str(exc), "skip_clip")
