@@ -71,6 +71,16 @@
       "diagnosis": "pacing_drop_excess_duration",
       "rule": "Deprioritize streamer_chaos_reaction/mid_story unless hook_impact >= 30/35",
       "recorded_at": "2026-11-24T03:58:09.550153+00:00"
+    },
+    {
+      "clip_id": "2842428585_0_24",
+      "views_48h": 0,
+      "hook_archetype": "streamer_chaos_reaction",
+      "caption_preset": "gtaclipper_pill",
+      "duration_sec": 24.93,
+      "diagnosis": "weak_0_3s_hook_or_saturation",
+      "rule": "Deprioritize streamer_chaos_reaction/short_punch unless hook_impact >= 30/35",
+      "recorded_at": "2026-11-24T16:50:03.316107+00:00"
     }
   ],
   "tool_recoveries": [

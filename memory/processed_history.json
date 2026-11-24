@@ -237,14 +237,75 @@
           "scheduled_at": "2026-11-22T04:38:47Z"
         }
       },
-      "metrics_48h": null,
-      "evaluated": false
+      "metrics_48h": {
+        "views": 0,
+        "raw": {
+          "success": true,
+          "post": {
+            "request_id": "776d49c97fe240d1985eaffe07717760",
+            "profile_username": "default",
+            "post_title": "I got BANNED in GTA 6 for doing THIS... #Shorts",
+            "post_caption": "INSTANTLY BANNED — The moment I got banned in GTA 6 for this.\nCredit: theburntpeanut\n\nShould I have been banned for this? Yes or No?\n\n#GTA6 #GTA6Gameplay #StreamerFails #Gaming #Viral #GTA6Clips",
+            "media_type": "video",
+            "upload_timestamp": "2026-11-22 04:38:55.864000"
+          },
+          "platforms": {
+            "youtube": {
+              "success": true,
+              "platform_post_id": "4kMeESHFIIQ",
+              "post_url": "https://www.youtube.com/watch?v=4kMeESHFIIQ",
+              "error_message": null,
+              "media_size_bytes": 5833645,
+              "target_linkedin_page_id": null,
+              "post_metrics": {
+                "views": 4,
+                "likes": 0,
+                "comments": 1,
+                "favorites": 0,
+                "warnings": [
+                  "YouTube watch time, average view duration and retention are temporarily unavailable: our YouTube Analytics quota is used up until it resets at 08:00 UTC. Views, likes and comments are current."
+                ]
+              },
+              "post_metrics_source": "platform_api",
+              "as_of": "2026-11-24T16:50:02.976345Z",
+              "next_refresh_at": "2026-11-24T16:55:03.260481Z",
+              "missing": {
+                "reach": "not_supported"
+              },
+              "profile_snapshot_at_post_date": {
+                "followers": 6,
+                "reach": 0,
+                "impressions": 5,
+                "profileViews": 0,
+                "likes": 0,
+                "comments": 0,
+                "shares": 0,
+                "saves": 0
+              },
+              "profile_snapshot_latest": {
+                "followers": 6,
+                "reach": 0,
+                "impressions": 10,
+                "profileViews": 0,
+                "likes": 0,
+                "comments": 3,
+                "shares": 0,
+                "saves": 0
+              },
+              "profile_snapshot_latest_date": "2026-11-24"
+            }
+          },
+          "as_of": "2026-11-24T16:50:02.976345Z",
+          "next_refresh_at": "2026-11-24T16:55:03.260481Z"
+        }
+      },
+      "evaluated": true
     }
   ],
   "stats": {
     "total_videos_scanned": 3,
     "total_clips_rendered": 3,
     "total_clips_published": 3,
-    "last_run_utc": "2026-11-24T03:58:52.180310+00:00"
+    "last_run_utc": "2026-11-24T16:50:52.297195+00:00"
   }
 }
