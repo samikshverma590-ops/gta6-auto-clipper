@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-23T17:03:07.369073+00:00",
+  "updated_at": "2026-11-24T03:58:09.550163+00:00",
   "game_context": {
     "title": "Grand Theft Auto VI (GTA 6)",
     "release_date": "2026-11-19",
@@ -71,7 +71,7 @@
         "PS6 GRAPHICS?!",
         "REALISM IS INSANE"
       ],
-      "weight": 1.25,
+      "weight": 1.15,
       "keywords": [
         "npc",
         "detail",
@@ -120,7 +120,7 @@
         "HE PANICKED",
         "NO WAY BRO"
       ],
-      "weight": 1.15,
+      "weight": 1.05,
       "keywords": [
         "what",
         "bro",
@@ -248,7 +248,7 @@
     }
   },
   "channel_stats": {
-    "channel_avg_views_48h": 1500,
-    "total_evaluated_clips": 0
+    "channel_avg_views_48h": 0.0,
+    "total_evaluated_clips": 2
   }
 }

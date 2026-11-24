@@ -51,7 +51,28 @@
       "created_at": "2026-11-21T18:58:00Z"
     }
   ],
-  "flop_postmortems": [],
+  "flop_postmortems": [
+    {
+      "clip_id": "2431523148_0_17",
+      "views_48h": 0,
+      "hook_archetype": "npc_ai_shock",
+      "caption_preset": "gtaclipper_pill",
+      "duration_sec": 17.67,
+      "diagnosis": "weak_0_3s_hook_or_saturation",
+      "rule": "Deprioritize npc_ai_shock/short_punch unless hook_impact >= 30/35",
+      "recorded_at": "2026-11-24T03:58:09.550123+00:00"
+    },
+    {
+      "clip_id": "320451500_0_35",
+      "views_48h": 0,
+      "hook_archetype": "streamer_chaos_reaction",
+      "caption_preset": "gtaclipper_pill",
+      "duration_sec": 35.7,
+      "diagnosis": "pacing_drop_excess_duration",
+      "rule": "Deprioritize streamer_chaos_reaction/mid_story unless hook_impact >= 30/35",
+      "recorded_at": "2026-11-24T03:58:09.550153+00:00"
+    }
+  ],
   "tool_recoveries": [
     {
       "timestamp": "2026-11-21T18:37:45.678060+00:00",

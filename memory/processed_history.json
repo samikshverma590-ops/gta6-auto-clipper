@@ -55,8 +55,59 @@
           "scheduled_at": "2026-11-21T19:03:06Z"
         }
       },
-      "metrics_48h": null,
-      "evaluated": false
+      "metrics_48h": {
+        "views": 0,
+        "raw": {
+          "success": true,
+          "post": {
+            "request_id": "3799f5afb1cc41ee9285a113685effcf",
+            "profile_username": "default",
+            "post_title": "XQC Gets Absolutely Roasted By GTA 6 NPC! #Shorts",
+            "post_caption": "NPC ROASTS XQC — XQC Gets Absolutely Roasted By GTA 6 NPC\nCredit: xqc\n\nDoes this NPC deserve a raise or nah?\n\n#gta6 #xqc #gtavi #twitchclips #gaming #gta6leaks",
+            "media_type": "video",
+            "upload_timestamp": "2026-11-21 19:03:22.935000"
+          },
+          "platforms": {
+            "youtube": {
+              "success": true,
+              "platform_post_id": "f1FawxuQXTA",
+              "post_url": "https://www.youtube.com/watch?v=f1FawxuQXTA",
+              "error_message": null,
+              "media_size_bytes": 7784418,
+              "target_linkedin_page_id": null,
+              "post_metrics": {
+                "views": 2,
+                "likes": 0,
+                "comments": 1,
+                "favorites": 0,
+                "warnings": [
+                  "YouTube watch time, average view duration and retention are temporarily unavailable: our YouTube Analytics quota is used up until it resets at 08:00 UTC. Views, likes and comments are current."
+                ]
+              },
+              "post_metrics_source": "platform_api",
+              "as_of": "2026-11-24T03:58:08.722559Z",
+              "next_refresh_at": "2026-11-24T04:03:08.847903Z",
+              "missing": {
+                "reach": "not_supported"
+              },
+              "profile_snapshot_latest": {
+                "followers": 6,
+                "reach": 0,
+                "impressions": 4,
+                "profileViews": 0,
+                "likes": 0,
+                "comments": 0,
+                "shares": 0,
+                "saves": 0
+              },
+              "profile_snapshot_latest_date": "2026-11-23"
+            }
+          },
+          "as_of": "2026-11-24T03:58:08.722559Z",
+          "next_refresh_at": "2026-11-24T04:03:08.847903Z"
+        }
+      },
+      "evaluated": true
     },
     {
       "clip_id": "320451500_0_35",
@@ -95,8 +146,59 @@
           "scheduled_at": "2026-11-21T22:33:06Z"
         }
       },
-      "metrics_48h": null,
-      "evaluated": false
+      "metrics_48h": {
+        "views": 0,
+        "raw": {
+          "success": true,
+          "post": {
+            "request_id": "5e5b4abd88454872aca98e146545f8aa",
+            "profile_username": "default",
+            "post_title": "Caseoh Reacts To The Most Broken GTA 6 Physics Glitch Ever #Shorts",
+            "post_caption": "IMPOSSIBLE SURVIVAL GLITCH — Caseoh witnesses the most broken GTA 6 physics glitch ever\nCredit: caseoh_\n\nBug or feature? Let us know below! 👇\n\n#GTA6 #Caseoh #GTA6Gameplay #GamingClips #StreamerMoments #Viral",
+            "media_type": "video",
+            "upload_timestamp": "2026-11-21 22:33:10.510000"
+          },
+          "platforms": {
+            "youtube": {
+              "success": true,
+              "platform_post_id": "ycK9EhdyndI",
+              "post_url": "https://www.youtube.com/watch?v=ycK9EhdyndI",
+              "error_message": null,
+              "media_size_bytes": 18986095,
+              "target_linkedin_page_id": null,
+              "post_metrics": {
+                "views": 1,
+                "likes": 0,
+                "comments": 1,
+                "favorites": 0,
+                "warnings": [
+                  "YouTube watch time, average view duration and retention are temporarily unavailable: our YouTube Analytics quota is used up until it resets at 08:00 UTC. Views, likes and comments are current."
+                ]
+              },
+              "post_metrics_source": "platform_api",
+              "as_of": "2026-11-24T03:58:09.386001Z",
+              "next_refresh_at": "2026-11-24T04:03:09.450227Z",
+              "missing": {
+                "reach": "not_supported"
+              },
+              "profile_snapshot_latest": {
+                "followers": 6,
+                "reach": 0,
+                "impressions": 4,
+                "profileViews": 0,
+                "likes": 0,
+                "comments": 0,
+                "shares": 0,
+                "saves": 0
+              },
+              "profile_snapshot_latest_date": "2026-11-23"
+            }
+          },
+          "as_of": "2026-11-24T03:58:09.386001Z",
+          "next_refresh_at": "2026-11-24T04:03:09.450227Z"
+        }
+      },
+      "evaluated": true
     },
     {
       "clip_id": "2842428585_0_24",
@@ -143,6 +245,6 @@
     "total_videos_scanned": 3,
     "total_clips_rendered": 3,
     "total_clips_published": 3,
-    "last_run_utc": "2026-11-23T17:03:30.303735+00:00"
+    "last_run_utc": "2026-11-24T03:58:52.180310+00:00"
   }
 }
